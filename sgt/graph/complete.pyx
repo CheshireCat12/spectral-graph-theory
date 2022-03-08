@@ -10,4 +10,4 @@ cdef class Complete(Graph):
         super().__init__(n_nodes)
 
     cpdef void __init_graph(self):
-        self.adjacency = np.ones((self.n_nodes, self.n_nodes)) - np.eye(self.n_nodes)
+        self.adjacency = np.ones(self.n_nodes) - np.eye(self.n_nodes)
