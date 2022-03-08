@@ -1,12 +1,13 @@
-from sgt.graph import Graph
+from sgt.graph.graph import Graph
+from sgt.graph.star import Star
+import numpy as np
 
 def main():
-    graph = Graph(20)
-    print(graph.adjacency.base)
+    graph = Star(10)
+    print(np.asarray(graph.adjacency))
+    print(graph.degree(0))
 
-    print(graph.degree(4))
 
-# Press the green button in the gutter to run the script.
+
 if __name__ == '__main__':
     main()
-

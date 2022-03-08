@@ -4,6 +4,7 @@ from glob import glob
 from setuptools import setup, Extension
 
 install_requires = [
+    'wheel',
     'cython',
     'numpy',
     'scipy',
@@ -35,6 +36,7 @@ def extension_modules():
             print(f'Create new Extension for: {ext_name.split(".")[-1]}')
 
     return ext
+
 
 # Create automatically the extenstions
 extensions = extension_modules()
