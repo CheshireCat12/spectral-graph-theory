@@ -1,9 +1,10 @@
+cimport numpy as np
 
 cdef class Graph:
 
     cdef:
         int __n_nodes
-        double[:, ::1] __adjacency
+        np.ndarray __adjacency
 
     cpdef void __init_graph(self) except *
 

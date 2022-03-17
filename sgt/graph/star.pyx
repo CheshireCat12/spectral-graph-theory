@@ -9,6 +9,7 @@ cdef class Star(Graph):
     def __init__(self, int n_nodes):
         super().__init__(n_nodes)
 
+
     cpdef void __init_graph(self):
         cdef:
             double [:, ::1] adj = np.zeros((self.n_nodes, self.n_nodes))

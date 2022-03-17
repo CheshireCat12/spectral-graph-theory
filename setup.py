@@ -6,10 +6,12 @@ from setuptools import setup, Extension
 install_requires = [
     'wheel',
     'cython',
+    'networkx',
     'numpy',
     'scipy',
     'powerline-status',
     'pytest',
+    'IPython',
 ]
 
 

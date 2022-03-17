@@ -3,10 +3,25 @@ cimport numpy as np
 
 
 cdef class Graph:
+    """
+    Abstract class of Graph
+
+    Attributes
+    ----------
+    n_nodes : int
+    adjacency : np.ndarray
+
+    Methods
+    -------
+    degree(idx_node: int) -> int
+
+    """
 
     def __init__(self, int n_nodes):
         self.n_nodes = n_nodes
         self.adjacency = None
+
+        self.__init_graph()
 
     @property
     def n_nodes(self):
@@ -14,8 +29,6 @@ cdef class Graph:
 
     @property
     def adjacency(self):
-        if self.__adjacency is None:
-            self.__init_graph()
         return self.__adjacency
 
     @n_nodes.setter
