@@ -2,20 +2,20 @@ import pstats
 
 import numpy as np
 
-from sgt.algorithms.regularity import degrees, random_partition_init, classes_pair
-from sgt.graph.complete import Complete
-from sgt.graph.cycle import Cycle
+# from rgr.algorithms.regularity import degrees, random_partition_init, classes_pair
+from rgr.collection.standard import complete_graph, cycle_graph, erdos_renyi_graph
+from rgr.utils.visualization import graph_to_pyvis, graph_2_img
 
-
-def profiler():
-    import cProfile
-    graph = Complete(10000)
-    profiler_ = cProfile.Profile()
-    profiler_.enable()
-    degrees(graph)
-    profiler_.disable()
-    stats = pstats.Stats(profiler_).sort_stats('time')
-    stats.print_stats()
+#
+# def profiler():
+#     import cProfile
+#     graph = complete_graph(10000)
+#     profiler_ = cProfile.Profile()
+#     profiler_.enable()
+#     degrees(graph)
+#     profiler_.disable()
+#     stats = pstats.Stats(profiler_).sort_stats('time')
+#     stats.print_stats()
 
 import networkx as nx
 # def run():
@@ -32,11 +32,11 @@ import networkx as nx
 #             break
 #         break
 
-from sgt.graph.erdos_renyi import ErdosRenyi
+# from rgr.graph.erdos_renyi import ErdosRenyi
 import sys
 
 def check_size_objects():
-   graph = Complete(10)
+   graph = complete_graph(10)
    adj = np.asarray(graph.adjacency)
    size = sys.getsizeof(graph.adjacency.base)
    print(size)
@@ -47,10 +47,11 @@ def check_size_objects():
    print(graph.adjacency)
 
 
-
+from rgr.utils.converter import graph_2_nx
 def main():
     np.random.seed(45)
-    check_size_objects()
+
+    # check_size_objects()
     # run()
     # print(graph.degree(0))
     # erdos_graph = ErdosRenyi(32, 0.8)
@@ -58,6 +59,11 @@ def main():
     # r_graph = nx.erdos_renyi_graph(5, 0.8, seed=42)
     # print(r_graph)
     # print(nx.to_numpy_matrix(r_graph))
+
+    graph = erdos_renyi_graph(500, 0.05)
+    # nx_graph = graph_2_nx(graph)
+    print('see')
+    graph_2_img(graph)
 
 
     # profiler()

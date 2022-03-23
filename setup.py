@@ -9,9 +9,11 @@ install_requires = [
     'networkx',
     'numpy',
     'scipy',
+    'matplotlib',
     'powerline-status',
     'pytest',
     'IPython',
+    'pyvis',
 ]
 
 
@@ -23,7 +25,7 @@ def extension_modules():
     import numpy
     ext = []
     files = glob('**/*.pyx', recursive=True)
-    packages = ['sgt']
+    packages = ['rgr']
     for file in files:
         if any(file.startswith(pkg) for pkg in packages):
             ext_name = file[:-4].replace('/', '.')
@@ -47,7 +49,7 @@ for e in extensions:
     e.cython_directives = {'language_level': "3",  # all are Python-3
                            'embedsignature': True}
 
-setup(name='spectral-graph-theory',
+setup(name='regularity-graph-reduction',
       version='0.0.1',
       description='A Cython package to perform spectral graph operations',
       author='Anthony Gillioz',
