@@ -2,8 +2,8 @@ import numpy as np
 cimport numpy as np
 from cython cimport boundscheck, wraparound
 
-from sgt.graph.graph cimport Graph
-from sgt.constants.types cimport DTYPE_ADJ
+from rgr.graph.graph cimport Graph
+from rgr.constants.types cimport DTYPE_ADJ
 
 
 cpdef int[::1] random_partition_init(int n_nodes, int n_classes):

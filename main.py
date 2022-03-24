@@ -3,9 +3,10 @@ import pstats
 import numpy as np
 
 # from rgr.algorithms.regularity import degrees, random_partition_init, classes_pair
-from rgr.collection.standard import complete_graph, cycle_graph, erdos_renyi_graph
-from rgr.utils.visualization import graph_to_pyvis, graph_2_img
-
+from rgr.collection.standard import complete_graph, cycle_graph, erdos_renyi_graph, peterson_graph, block_model
+from rgr.utils.visualization import graph_2_pyvis, graph_2_img
+from rgr.graph.graph import Graph
+from rgr.graph.properties import degrees
 #
 # def profiler():
 #     import cProfile
@@ -46,7 +47,7 @@ def check_size_objects():
    print(graph.n_nodes)
    print(graph.adjacency)
 
-
+import networkx as nx
 from rgr.utils.converter import graph_2_nx
 def main():
     np.random.seed(45)
@@ -59,11 +60,25 @@ def main():
     # r_graph = nx.erdos_renyi_graph(5, 0.8, seed=42)
     # print(r_graph)
     # print(nx.to_numpy_matrix(r_graph))
+    size = 10
+    p = 0.1
+    random = nx.gnp_random_graph(size, p)
+    clusters = np.array([100] * 10)
+    graph = block_model(100*10, clusters, 0.1, 1, 0.1, 0)
+    sizes = [100] * 100
+    probs = np.ones((100, 100)) * 0.1
+    np.fill_diagonal(probs, 0.9)
+    # probs = [[0.9, 0.1, 0.1], [0.1, 0.9, 0.1], [0.1, 0.1, 0.9]]
+    g = nx.stochastic_block_model(sizes, probs, seed=0)
+    random_graph = Graph(nx.to_numpy_array(g))
+    nx_graph = graph_2_nx(graph)
 
-    graph = erdos_renyi_graph(500, 0.05)
-    # nx_graph = graph_2_nx(graph)
-    print('see')
-    graph_2_img(graph)
+    print(degrees(graph))
+    np.random.seed(42)
+    # graph_2_pyvis(nx_graph, 'test.html')
+    graph_2_img(graph, 'test.png')
+    np.random.seed(42)
+    graph_2_img(random_graph, 'test_nx.png')
 
 
     # profiler()

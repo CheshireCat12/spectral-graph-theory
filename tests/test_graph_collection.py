@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 from rgr.constants.types import get_dtype_adj
 
-from rgr.collection.standard import complete_graph, cycle_graph, star_graph, path_graph, erdos_renyi_graph
+from rgr.collection.standard import complete_graph, cycle_graph, star_graph, path_graph, erdos_renyi_graph, block_model
 
 DTYPE_ADJ = get_dtype_adj()
 
@@ -134,3 +134,9 @@ def test_erdos_renyi(n_nodes, expected_adj):
     graph = erdos_renyi_graph(n_nodes, prob_edge=0.8)
 
     assert np.array_equal(graph.adjacency, expected_adj)
+
+
+def test_block_model():
+
+    clusters = np.array([5] * 3)
+    block_model(15, clusters, 0.1, 1, 0.1, 0)

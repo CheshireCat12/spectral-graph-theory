@@ -5,7 +5,7 @@ from pyvis.network import Network
 
 from rgr.graph.graph cimport Graph
 
-cpdef void graph_to_pyvis(graph: nx.Graph, str filename):
+cpdef void graph_2_pyvis(graph: nx.Graph, str filename):
     """
     
     Args:
@@ -21,5 +21,5 @@ cpdef void graph_to_pyvis(graph: nx.Graph, str filename):
     nt.show_buttons(filter_=['physics'])
     nt.save_graph(filename)
 
-cpdef void graph_2_img(Graph graph):
-    plt.imsave('test.png', graph.adjacency)
+cpdef void graph_2_img(Graph graph, str filename):
+    plt.imsave(filename, graph.adjacency)

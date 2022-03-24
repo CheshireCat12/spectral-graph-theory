@@ -5,5 +5,4 @@ cdef class Synthetic(Graph):
 
         self.n_clusters = n_clusters
 
-    cpdef void __init_graph(self) except *:
-        pass
+

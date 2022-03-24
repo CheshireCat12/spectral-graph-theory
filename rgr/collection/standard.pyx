@@ -121,8 +121,62 @@ cpdef Graph erdos_renyi_graph(int n_nodes, float prob_edge):
     """
     shape = (n_nodes, n_nodes)
     rand_adjacency = np.random.choice(np.array([0, 1], dtype=DTYPE_ADJ),
-                                 size=shape,
-                                 p=[1 - prob_edge, prob_edge])
+                                      size=shape,
+                                      p=[1 - prob_edge, prob_edge])
     low_adjacency = np.tril(rand_adjacency, k=-1)
 
     return Graph(low_adjacency + low_adjacency.T)
+
+cpdef Graph peterson_graph():
+    """
+    Create the perterson graph
+    
+    Returns:
+        Graph Peterson graph
+    """
+    adjacency = np.array(
+        [[0, 1, 0, 0, 1, 1, 0, 0, 0, 0],
+         [1, 0, 1, 0, 0, 0, 1, 0, 0, 0],
+         [0, 1, 0, 1, 0, 0, 0, 1, 0, 0],
+         [0, 0, 1, 0, 1, 0, 0, 0, 1, 0],
+         [1, 0, 0, 1, 0, 0, 0, 0, 0, 1],
+         [1, 0, 0, 0, 0, 0, 0, 1, 1, 0],
+         [0, 1, 0, 0, 0, 0, 0, 0, 1, 1],
+         [0, 0, 1, 0, 0, 1, 0, 0, 0, 1],
+         [0, 0, 0, 1, 0, 1, 1, 0, 0, 0],
+         [0, 0, 0, 0, 1, 0, 1, 1, 0, 0]],
+        dtype=DTYPE_ADJ)
+
+    return Graph(adjacency)
+
+cpdef Graph block_model(int n_nodes, np.ndarray dims, internoise_lvl, internoise_val, intranoise_lvl, intranoise_val):
+    np.random.seed(0)
+    G = np.tril(np.random.random((n_nodes, n_nodes)).astype('float32') < internoise_lvl, -1).astype('int8')
+    G = np.multiply(G, internoise_val)
+    print(G)
+    GT = np.tril(np.zeros((n_nodes, n_nodes), dtype=DTYPE_ADJ), -1)
+    print(GT)
+
+    x = 0
+    for dim in dims:
+        cluster = np.tril(np.ones((dim, dim), dtype="float32"), -1)
+        mask = np.tril(np.random.random((dim, dim)).astype("float32") < intranoise_lvl, -1)
+
+        if intranoise_val== 0:
+            cluster += mask
+            indices = (cluster == 2)
+            cluster[indices] = 0
+        else:
+            mask = np.multiply(mask, intranoise_val)
+            cluster += mask
+            indices = (cluster > 1)
+            cluster[indices] = intranoise_val
+
+        G[x:x + dim, x:x + dim] = cluster.astype('int8')
+        GT[x:x + dim, x:x + dim] = np.tril(np.ones(dim, dtype="int8"), -1)
+
+        x += dim
+
+    # print(G + G.T)
+    # print(GT+GT.T)
+    return Graph(G + G.T)
