@@ -204,6 +204,5 @@ cpdef void degrees2(Graph graph):
 
     for i in range(m):
         for j in range(n):
-            print(i, j)
             degs[i] += graph.adjacency[i][j]
 

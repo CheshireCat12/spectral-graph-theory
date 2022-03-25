@@ -164,7 +164,8 @@ cpdef Graph stochastic_block_model(int n_nodes,
     """
     Create a graph with partition blocks.
     The ´intra_noise´ and ´inter_noise´ parameters model the percentage
-    of noise in and between the blocks, respectively
+    of noise in and between the blocks, respectively.
+    If ´intra_noise´ and ´inter_noise´ are set to 0 then simple block graph is created.
     
     Args:
         n_nodes: int
@@ -191,37 +192,6 @@ cpdef Graph stochastic_block_model(int n_nodes,
     np.fill_diagonal(probs, 1 - intra_noise)
 
     block_graph = nx.stochastic_block_model(sizes, probs, seed=0)
+    adjacency = nx.to_numpy_array(block_graph).astype(DTYPE_ADJ)
 
-    return Graph(nx.to_numpy_array(block_graph).astype(DTYPE_ADJ))
-
-# cpdef Graph block_model(int n_nodes, np.ndarray dims, internoise_lvl, internoise_val, intranoise_lvl, intranoise_val):
-# np.random.seed(0)
-# G = np.tril(np.random.random((n_nodes, n_nodes)).astype('float32') < internoise_lvl, -1).astype('int8')
-# G = np.multiply(G, internoise_val)
-# print(G)
-# GT = np.tril(np.zeros((n_nodes, n_nodes), dtype=DTYPE_ADJ), -1)
-# print(GT)
-#
-# x = 0
-# for dim in dims:
-#     cluster = np.tril(np.ones((dim, dim), dtype="float32"), -1)
-#     mask = np.tril(np.random.random((dim, dim)).astype("float32") < intranoise_lvl, -1)
-#
-#     if intranoise_val== 0:
-#         cluster += mask
-#         indices = (cluster == 2)
-#         cluster[indices] = 0
-#     else:
-#         mask = np.multiply(mask, intranoise_val)
-#         cluster += mask
-#         indices = (cluster > 1)
-#         cluster[indices] = intranoise_val
-#
-#     G[x:x + dim, x:x + dim] = cluster.astype('int8')
-#     GT[x:x + dim, x:x + dim] = np.tril(np.ones(dim, dtype="int8"), -1)
-#
-#     x += dim
-#
-# # print(G + G.T)
-# # print(GT+GT.T)
-# return Graph(G + G.T)
+    return Graph(adjacency)

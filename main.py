@@ -3,7 +3,7 @@ import pstats
 import numpy as np
 
 # from rgr.algorithms.regularity import degrees, random_partition_init, classes_pair
-from rgr.collection.standard import complete_graph, cycle_graph, erdos_renyi_graph, peterson_graph, block_model
+from rgr.collection.standard import *
 from rgr.utils.visualization import graph_2_pyvis, graph_2_img
 from rgr.graph.graph import Graph
 from rgr.graph.properties import degrees

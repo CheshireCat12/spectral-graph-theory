@@ -27,6 +27,7 @@ def test_complete(n_nodes, expected_adj):
     graph = complete_graph(n_nodes)
 
     assert np.array_equal(graph.adjacency, expected_adj)
+    assert graph.adjacency.dtype == DTYPE_ADJ
 
 
 ##############################
@@ -55,6 +56,7 @@ def test_cycle(n_nodes, expected_adj):
     graph = cycle_graph(n_nodes)
 
     assert np.array_equal(graph.adjacency, expected_adj)
+    assert graph.adjacency.dtype == DTYPE_ADJ
 
 
 ##############################
@@ -80,7 +82,7 @@ def test_path(n_nodes, expected_adj):
     graph = path_graph(n_nodes)
 
     assert np.array_equal(graph.adjacency, expected_adj)
-
+    assert graph.adjacency.dtype == DTYPE_ADJ
 
 ##############################
 # Star Graph
@@ -106,7 +108,7 @@ def test_star(n_nodes, expected_adj):
     graph = star_graph(n_nodes)
 
     assert np.array_equal(graph.adjacency, expected_adj)
-
+    assert graph.adjacency.dtype == DTYPE_ADJ
 
 ##############################
 # Erdos-renyi Graph
@@ -138,9 +140,9 @@ def test_erdos_renyi(n_nodes, expected_adj):
     assert graph.adjacency.dtype == DTYPE_ADJ
 
 
-def test_block_model_without_noise():
-    n_nodes = 17
-    n_clusters = 3
+@pytest.mark.parametrize('n_nodes, n_clusters',
+                         [(15, 3), (17, 3)])
+def test_block_model_without_noise(n_nodes, n_clusters):
 
     graph = stochastic_block_model(n_nodes, n_clusters, 0, 0)
     expected = np.zeros((n_nodes, n_nodes))
