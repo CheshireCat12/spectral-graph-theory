@@ -21,7 +21,7 @@ cpdef np.ndarray random_partition_init(int n_nodes, int n_partitions):
     # TODO: make sure the C_0 is correctly taken into account or see what is going on
     prts_cardinality = n_nodes // n_partitions
 
-    partitions = np.repeat(range(n_partitions+1),
+    partitions = np.repeat(range(1, n_partitions+1),
                            prts_cardinality).astype(DTYPE_STD)
     np.random.shuffle(partitions)
 
