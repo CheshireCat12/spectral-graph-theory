@@ -1,32 +1,31 @@
 import numpy as np
-cimport numpy as np
-from cython cimport boundscheck, wraparound
 
-from rgr.graph.graph cimport Graph
-from rgr.constants.types cimport DTYPE_ADJ
-
-
-cpdef int[::1] random_partition_init(int n_nodes, int n_classes):
+cpdef np.ndarray random_partition_init(int n_nodes, int n_partitions):
     """
     Create the initial random partitioning of Alon algorithm.
-    The nodes in graph G are partitioned into k classes.
-    Where each class C_k has equal number of 
+    The nodes in graph G are partitioned into ``n_partitions`` partitions.
+    Where each class C_{``n_partitions``} has an equal number of elements
     
     Args:
-        n_classes: 
-        n_nodes: 
+        n_nodes: int
+            Number of nodes
+        n_partitions: int
+            Number of partitions
 
     Returns:
-
+        np.ndarray: array of partitions
     """
-    # TODO: rename nodes_per_cls by nodes_per_cls or even cls_cardinality
-    cls_cardinality = n_nodes // n_classes
+    cdef:
+        int prts_cardinality
+        np.ndarray partitions
+    # TODO: make sure the C_0 is correctly taken into account or see what is going on
+    prts_cardinality = n_nodes // n_partitions
 
-    classes = np.repeat(range(1, n_classes+1),
-                        cls_cardinality).astype(DTYPE_ADJ)
-    np.random.shuffle(classes)
+    partitions = np.repeat(range(n_partitions+1),
+                           prts_cardinality).astype(DTYPE_STD)
+    np.random.shuffle(partitions)
 
-    return classes
+    return partitions
 
 cpdef alon_condition_1(int bip_avg_deg, int cls_cardinality, float eps):
     return bip_avg_deg < (eps**3) * cls_cardinality
@@ -184,25 +183,3 @@ cpdef classes_pair(int[:, ::1] adjacency, int[::1] classes, int r, int s, eps):
     print(alon_condition_2(adjacency, s_indices, r_indices, s_r_degrees, bip_avg_deg, cls_cardinality, eps))
     print(alon_condition_3(adjacency, s_indices, r_indices, s_r_degrees, bip_adj, bip_avg_deg, cls_cardinality, eps))
     neighbourhood_deviation(bip_adj, bip_avg_deg, cls_cardinality)
-
-@boundscheck(False)
-@wraparound(False)
-cpdef void degrees(Graph graph):
-
-    np.sum(graph.adjacency, axis=0)
-    # np.asarray(graph.adjacency) @ np.asarray(graph.adjacency)
-
-# @boundscheck(False)
-# @wraparound(False)
-cpdef void degrees2(Graph graph):
-    cdef:
-        int i, j
-        int[::1] degs
-
-    m, n = graph.adjacency.shape
-    degs = np.zeros(m, dtype=np.int32)
-
-    for i in range(m):
-        for j in range(n):
-            degs[i] += graph.adjacency[i][j]
-

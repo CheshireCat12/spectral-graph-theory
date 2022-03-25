@@ -114,7 +114,7 @@ cpdef Graph erdos_renyi_graph(int n_nodes, float prob_edge):
     """
     Erdos-Renyi graph
     The nodes are randomly connected
-    (i.e., each edge is included to the graph with probability ´prob_edge´
+    (i.e., each edge is included to the graph with probability ``prob_edge``
     
     Args:
         n_nodes : int
@@ -139,7 +139,7 @@ cpdef Graph peterson_graph():
     Create the perterson graph
     
     Returns:
-        Graph Peterson graph
+        Graph - Peterson graph
     """
     adjacency = np.array(
         [[0, 1, 0, 0, 1, 1, 0, 0, 0, 0],
@@ -163,9 +163,9 @@ cpdef Graph stochastic_block_model(int n_nodes,
                                    int seed=42):
     """
     Create a graph with partition blocks.
-    The ´intra_noise´ and ´inter_noise´ parameters model the percentage
+    The ``intra_noise`` and ``inter_noise`` parameters model the percentage
     of noise in and between the blocks, respectively.
-    If ´intra_noise´ and ´inter_noise´ are set to 0 then simple block graph is created.
+    If ``intra_noise´` and ``inter_noise`` are set to 0 then simple block graph is created.
     
     Args:
         n_nodes: int
