@@ -2,7 +2,8 @@ import numpy as np
 import pytest
 from rgr.constants.types import get_dtype_adj
 
-from rgr.collection.standard import complete_graph, cycle_graph, star_graph, path_graph, erdos_renyi_graph, block_model
+from rgr.collection.standard import complete_graph, cycle_graph, star_graph, path_graph, erdos_renyi_graph, \
+    stochastic_block_model
 
 DTYPE_ADJ = get_dtype_adj()
 
@@ -134,9 +135,25 @@ def test_erdos_renyi(n_nodes, expected_adj):
     graph = erdos_renyi_graph(n_nodes, prob_edge=0.8)
 
     assert np.array_equal(graph.adjacency, expected_adj)
+    assert graph.adjacency.dtype == DTYPE_ADJ
 
 
-def test_block_model():
+def test_block_model_without_noise():
+    n_nodes = 17
+    n_clusters = 3
 
-    clusters = np.array([5] * 3)
-    block_model(15, clusters, 0.1, 1, 0.1, 0)
+    graph = stochastic_block_model(n_nodes, n_clusters, 0, 0)
+    expected = np.zeros((n_nodes, n_nodes))
+
+    sizes = [n_nodes // n_clusters] * n_clusters
+    sizes[-1] += n_nodes - sum(sizes)
+
+    pos = 0
+    for size in sizes:
+        expected[pos:pos+size, pos:pos+size] = np.tril(np.ones((size, size)), -1)
+        pos += size
+
+    expected += expected.T
+
+    assert np.array_equal(graph.adjacency, expected)
+    assert graph.adjacency.dtype == DTYPE_ADJ

@@ -1,3 +1,4 @@
+import networkx as nx
 import numpy as np
 
 cpdef Graph complete_graph(int n_nodes):
@@ -9,7 +10,8 @@ cpdef Graph complete_graph(int n_nodes):
     |E| = n(n-1)/2
  
     Args:
-        n_nodes (int): number of nodes
+        n_nodes : int
+            number of nodes
  
     Returns: 
         Graph: generated complete graph
@@ -33,7 +35,8 @@ cpdef Graph cycle_graph(int n_nodes):
     |E| = n
     
     Args:
-        n_nodes (int): number of nodes
+        n_nodes : int
+            number of nodes
  
     Returns:
         Graph: generated cycle graph
@@ -66,7 +69,8 @@ cpdef Graph path_graph(int n_nodes):
     |E| = n - 1
 
     Args:
-        n_nodes (int): number of nodes
+        n_nodes : int
+            number of nodes
 
     Returns:
         Graph: generated path graph
@@ -82,17 +86,18 @@ cpdef Graph path_graph(int n_nodes):
 
 cpdef Graph star_graph(int n_nodes):
     """
-       Star graph
-       All the nodes $n_{i}$ are linked to node $n_{0}$
+    Star graph
+    All the nodes $n_{i}$ are linked to node $n_{0}$
 
-       |V| = n
-       |E| = n - 1
+    |V| = n
+    |E| = n - 1
 
-       Args:
-           n_nodes (int): number of nodes
+    Args:
+        n_nodes : int
+            number of nodes
 
-       Returns:
-           Graph generated star graph
+    Returns:
+        Graph generated star graph
 
        """
     shape = (n_nodes, n_nodes)
@@ -112,8 +117,10 @@ cpdef Graph erdos_renyi_graph(int n_nodes, float prob_edge):
     (i.e., each edge is included to the graph with probability ´prob_edge´
     
     Args:
-        n_nodes (int): number of nodes
-        prob_edge (float): independent probability that an edge exist between two nodes
+        n_nodes : int
+            number of nodes
+        prob_edge : float 
+            independent probability that an edge exist between two nodes
 
     Returns:
         Graph Random Erdos-Renyi graph
@@ -149,34 +156,72 @@ cpdef Graph peterson_graph():
 
     return Graph(adjacency)
 
-cpdef Graph block_model(int n_nodes, np.ndarray dims, internoise_lvl, internoise_val, intranoise_lvl, intranoise_val):
-    np.random.seed(0)
-    G = np.tril(np.random.random((n_nodes, n_nodes)).astype('float32') < internoise_lvl, -1).astype('int8')
-    G = np.multiply(G, internoise_val)
-    print(G)
-    GT = np.tril(np.zeros((n_nodes, n_nodes), dtype=DTYPE_ADJ), -1)
-    print(GT)
+cpdef Graph stochastic_block_model(int n_nodes,
+                                   int n_clusters,
+                                   double intra_noise,
+                                   double inter_noise,
+                                   int seed=42):
+    """
+    Create a graph with partition blocks.
+    The ´intra_noise´ and ´inter_noise´ parameters model the percentage
+    of noise in and between the blocks, respectively
+    
+    Args:
+        n_nodes: int
+            Number of nodes
+        n_clusters: int
+            Number of blocks
+        intra_noise: float
+            Probability of noise in the blocks
+        inter_noise: float
+            Probability of noise between blocks
+        seed: int
 
-    x = 0
-    for dim in dims:
-        cluster = np.tril(np.ones((dim, dim), dtype="float32"), -1)
-        mask = np.tril(np.random.random((dim, dim)).astype("float32") < intranoise_lvl, -1)
+    Returns:
+        Graph
+    """
+    cdef:
+        list sizes
+        np.ndarray probs, adjacency
 
-        if intranoise_val== 0:
-            cluster += mask
-            indices = (cluster == 2)
-            cluster[indices] = 0
-        else:
-            mask = np.multiply(mask, intranoise_val)
-            cluster += mask
-            indices = (cluster > 1)
-            cluster[indices] = intranoise_val
+    sizes = [n_nodes // n_clusters] * n_clusters
+    sizes[-1] += n_nodes - sum(sizes)
 
-        G[x:x + dim, x:x + dim] = cluster.astype('int8')
-        GT[x:x + dim, x:x + dim] = np.tril(np.ones(dim, dtype="int8"), -1)
+    probs = np.ones((n_clusters, n_clusters)) * inter_noise
+    np.fill_diagonal(probs, 1 - intra_noise)
 
-        x += dim
+    block_graph = nx.stochastic_block_model(sizes, probs, seed=0)
 
-    # print(G + G.T)
-    # print(GT+GT.T)
-    return Graph(G + G.T)
+    return Graph(nx.to_numpy_array(block_graph).astype(DTYPE_ADJ))
+
+# cpdef Graph block_model(int n_nodes, np.ndarray dims, internoise_lvl, internoise_val, intranoise_lvl, intranoise_val):
+# np.random.seed(0)
+# G = np.tril(np.random.random((n_nodes, n_nodes)).astype('float32') < internoise_lvl, -1).astype('int8')
+# G = np.multiply(G, internoise_val)
+# print(G)
+# GT = np.tril(np.zeros((n_nodes, n_nodes), dtype=DTYPE_ADJ), -1)
+# print(GT)
+#
+# x = 0
+# for dim in dims:
+#     cluster = np.tril(np.ones((dim, dim), dtype="float32"), -1)
+#     mask = np.tril(np.random.random((dim, dim)).astype("float32") < intranoise_lvl, -1)
+#
+#     if intranoise_val== 0:
+#         cluster += mask
+#         indices = (cluster == 2)
+#         cluster[indices] = 0
+#     else:
+#         mask = np.multiply(mask, intranoise_val)
+#         cluster += mask
+#         indices = (cluster > 1)
+#         cluster[indices] = intranoise_val
+#
+#     G[x:x + dim, x:x + dim] = cluster.astype('int8')
+#     GT[x:x + dim, x:x + dim] = np.tril(np.ones(dim, dtype="int8"), -1)
+#
+#     x += dim
+#
+# # print(G + G.T)
+# # print(GT+GT.T)
+# return Graph(G + G.T)

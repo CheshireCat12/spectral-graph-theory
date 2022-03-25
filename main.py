@@ -63,14 +63,10 @@ def main():
     size = 10
     p = 0.1
     random = nx.gnp_random_graph(size, p)
+
     clusters = np.array([100] * 10)
     graph = block_model(100*10, clusters, 0.1, 1, 0.1, 0)
-    sizes = [100] * 100
-    probs = np.ones((100, 100)) * 0.1
-    np.fill_diagonal(probs, 0.9)
-    # probs = [[0.9, 0.1, 0.1], [0.1, 0.9, 0.1], [0.1, 0.1, 0.9]]
-    g = nx.stochastic_block_model(sizes, probs, seed=0)
-    random_graph = Graph(nx.to_numpy_array(g))
+
     nx_graph = graph_2_nx(graph)
 
     print(degrees(graph))
