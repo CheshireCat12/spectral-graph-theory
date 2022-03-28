@@ -23,7 +23,8 @@ cdef class RegularityConditions:
             return True, certificates, complements
         elif self.condition_2(certificates, complements):
             return True, certificates, complements
-        elif self.condition_3(certificates, complements)
+        elif self.condition_3(certificates, complements):
+            return True, certificates, complements
 
     cpdef bint condition_1(self, list certificates, list complements):
         """
