@@ -1,47 +1,95 @@
 from rgr.algorithms.regularity import random_partition_init
 import pytest
 import numpy as np
+from rgr.collection.standard import stochastic_block_model
+from rgr.algorithms.partition_pair import PartitionPair
+from rgr.algorithms.conditions.regularity_conditions import RegularityConditions
 from collections import Counter
+from collections import defaultdict
 
 
 @pytest.mark.parametrize('n_nodes, n_partitions, expected',
                          [
-                             (30, 5, np.array(
-                                 [1, 5, 3, 2, 5, 5, 5, 2, 3, 4, 1, 3, 2, 3, 4, 4, 1, 5, 2, 1, 4, 4, 2, 2, 5, 1, 1, 4, 3,
-                                  3])),
-                             (33, 5, np.array(
-                                 [1, 5, 3, 2, 5, 5, 5, 2, 3, 4, 1, 3, 2, 3, 4, 4, 1, 5, 2, 1, 4, 4, 2, 2, 5, 1, 1, 4, 3,
-                                  3])),
-                             (163, 15, np.array([12, 7, 4, 11, 1, 11, 5, 9, 8, 8, 14, 6, 8, 6, 7, 4, 8,
-                                                 10, 5, 2, 13, 7, 3, 1, 13, 3, 5, 10, 10, 3, 14, 9, 3, 13,
-                                                 14, 6, 2, 9, 7, 10, 12, 1, 15, 5, 2, 7, 12, 15, 12, 11, 7,
-                                                 14, 6, 9, 13, 14, 11, 15, 6, 15, 9, 4, 11, 10, 7, 9, 10, 13,
-                                                 5, 2, 12, 10, 3, 2, 6, 1, 15, 10, 1, 7, 11, 10, 2, 11, 13,
-                                                 11, 13, 5, 2, 12, 13, 5, 15, 1, 12, 14, 5, 1, 13, 2, 4, 1,
-                                                 6, 15, 11, 1, 4, 3, 6, 8, 4, 3, 8, 4, 12, 6, 14, 7, 4,
-                                                 14, 2, 13, 2, 3, 14, 5, 14, 10, 9, 8, 12, 15, 8, 8, 3, 9,
-                                                 15, 15, 4, 6, 9, 8, 9, 4, 3, 1, 11, 7, 12, 5],
-                                                dtype=np.int32))
+                             (30, 5,
+                              [np.array([], dtype=np.uint32),
+                               np.array([2, 10, 13, 24, 26, 28], dtype=np.uint32),
+                               np.array([5, 11, 16, 17, 22, 27], dtype=np.uint32),
+                               np.array([1,  8, 14, 20, 23, 29], dtype=np.uint32),
+                               np.array([4,  6,  7,  9, 18, 19], dtype=np.uint32),
+                               np.array([0,  3, 12, 15, 21, 25], dtype=np.uint32)]
+                              ),
+                             (33, 5,
+                              [np.array([11, 20, 24], dtype=np.uint32),
+                               np.array([2, 10, 16, 17, 25, 26], dtype=np.uint32),
+                               np.array([8, 13, 15, 23, 29, 32], dtype=np.uint32),
+                               np.array([1, 5, 14, 22, 28, 30], dtype=np.uint32),
+                               np.array([4, 6, 12, 18, 19, 21], dtype=np.uint32),
+                               np.array([0, 3, 7, 9, 27, 31], dtype=np.uint32)]
+                              ),
+                             (163, 15,
+                              [np.array([7, 26, 44, 54, 73, 90, 94, 100, 125, 131, 136, 149, 160], dtype=np.uint32),
+                               np.array([33, 37, 51, 62, 80, 101, 119, 138, 142, 154], dtype=np.uint32),
+                               np.array([8, 45, 55, 63, 89, 92, 93, 124, 146, 150], dtype=np.uint32),
+                               np.array([16, 19, 24, 40, 56, 60, 66, 107, 118, 134], dtype=np.uint32),
+                               np.array([22, 27, 61, 86, 108, 113, 121, 132, 144, 148], dtype=np.uint32),
+                               np.array([2, 18, 30, 59, 71, 96, 97, 106, 110, 145], dtype=np.uint32),
+                               np.array([10, 43, 74, 85, 98, 123, 130, 135, 147, 157], dtype=np.uint32),
+                               np.array([13, 48, 49, 50, 64, 69, 83, 109, 111, 112], dtype=np.uint32),
+                               np.array([3, 15, 20, 23, 52, 76, 78, 120, 122, 162], dtype=np.uint32),
+                               np.array([6, 12, 14, 68, 75, 84, 95, 126, 139, 161], dtype=np.uint32),
+                               np.array([0, 11, 35, 41, 46, 57, 91, 102, 152, 159], dtype=np.uint32),
+                               np.array([1, 4, 17, 42, 65, 105, 116, 133, 141, 151], dtype=np.uint32),
+                               np.array([5, 28, 34, 38, 53, 104, 114, 128, 129, 156], dtype=np.uint32),
+                               np.array([29, 31, 32, 79, 82, 99, 115, 127, 137, 143], dtype=np.uint32),
+                               np.array([25, 39, 58, 72, 77, 81, 140, 153, 155, 158], dtype=np.uint32),
+                               np.array([9, 21, 36, 47, 67, 70, 87, 88, 103, 117], dtype=np.uint32)]
+                              ),
                          ])
 def test_partition_init(n_nodes, n_partitions, expected):
     np.random.seed(0)
-    partition = random_partition_init(n_nodes, n_partitions)
+    partitions = random_partition_init(n_nodes, n_partitions)
 
-    assert np.array_equal(partition, expected)
-    # print()
-    # print(19 % 5)
-    # print(len(partition))
-    # print(partition)
-    # print(Counter(partition))
-    # print(sum(Counter(partition).values()))
-    # classes = np.zeros(n_nodes)
-    # classes_cardinality = n_nodes // n_partitions
+    for part_idx in range(0, n_partitions + 1):
+        assert np.array_equal(partitions[part_idx], expected[part_idx])
+
+
+def test_pair():
+    n_nodes = 30
+    n_partitions = 5
+
+    np.random.seed(0)
+    graph = stochastic_block_model(n_nodes, 3, 0, 0)
+    partitions = random_partition_init(n_nodes, n_partitions)
+    certificates_complements = defaultdict(list)
+    regular_partitions = defaultdict(list)
+    n_irregular_pairs = 0
+    sze_idx = 0
+    # for r in range(2, n_partitions + 1):
+    #     for s in range(1, r):
+    #         print()
+    #         print(f'r: {r}, s: {s}')
+    #         pair = PartitionPair(graph.adjacency, partitions, r, s, eps=0.285)
+    #         print(pair.bip_adj)
+    #         print(f'r indices', pair.r_indices)
+    #         print(f's indices', pair.s_indices)
+    #         print(f'bip avg def {pair.bip_avg_deg}')
+    #         reg_cond = RegularityConditions(pair)
     #
-    # for i in range(n_partitions):
-    #     classes[(i * classes_cardinality):((i + 1) * classes_cardinality)] = i + 1
+    #         print(reg_cond.conditions())
+    #         is_cond_verified, certificates, complements = reg_cond.conditions()
+    #         if is_cond_verified:
+    #             certificates_complements[r - 2].append([certificates, complements])
     #
-    # # np.random.shuffle(classes)
-    # print('final')
-    # print(classes)
-    # print(Counter(classes))
-    # print(sum(Counter(classes).values()))
+    #             if certificates[0]:
+    #                 n_irregular_pairs += 1
+    #             else:
+    #                 regular_partitions[r - 2].append(s)
+    #
+    #         else:
+    #             certificates_complements[r - 2].append([[[], []], [[], []]])
+    #
+    #         sze_idx += pair.bip_density ** 2
+    #
+    # sze_idx *= (1.0 / n_partitions ** 2)
+    # # break
+    # # break

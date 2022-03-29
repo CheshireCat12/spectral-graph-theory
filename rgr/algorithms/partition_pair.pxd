@@ -1,11 +1,13 @@
 cimport numpy as np
 
 cdef class PartitionPair:
-
     cdef:
-        int prts_size
-        double eps
-        np.ndarray adjacency
-        np.ndarray bip_avg_deg
-        np.ndarray s_indices, r_indices
-        np.ndarray s_degrees, r_degrees
+        public:
+            int prts_size
+            int r, s
+            int bip_sum_edges
+            double bip_avg_deg, bip_density
+            double eps
+            np.ndarray adjacency, bip_adj
+            np.ndarray s_indices, r_indices
+            np.ndarray s_degrees, r_degrees

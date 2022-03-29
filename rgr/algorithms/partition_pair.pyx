@@ -2,26 +2,29 @@ import numpy as np
 
 cdef class PartitionPair:
 
-    def __init__(self, np.ndarray adjacency, np.ndarray s_indices, np.ndarray r_indices, double eps):
+    def __init__(self, np.ndarray adjacency, list partitions, int r, int s, double eps):
         """
 
         Args:
             adjacency:
-            s_indices:
-            r_indices:
+            r:
+            s:
             eps:
         """
 
         self.adjacency = adjacency
-        self.s_indices = s_indices
-        self.r_indices = r_indices
+        self.r = r
+        self.s = s
         self.eps = eps
 
+        self.r_indices = partitions[r]
+        self.s_indices = partitions[s]
+
         # Bipartite adjacency matrix
-        self.bip_adj = adjacency[np.ix_(s_indices, r_indices)]
+        self.bip_adj = self.adjacency[np.ix_(self.s_indices, self.r_indices)]
 
         # Cardinality of the partitions
-        self.prts_size = self.bip_adj.shape[0]
+        self.prts_size = len(self.s_indices) #self.bip_adj.shape[0]
 
         self.bip_sum_edges = np.sum(self.bip_adj)
 
@@ -30,6 +33,8 @@ cdef class PartitionPair:
         # I directly sum the elements over the whole matrix,
         # so I don't have to divide the sum by 2
         self.bip_avg_deg = self.bip_sum_edges / self.prts_size
+
+        self.bip_density = self.bip_sum_edges / (self.prts_size**2)
 
         self.s_degrees = np.sum(self.bip_adj, axis=1)
         self.r_degrees = np.sum(self.bip_adj, axis=0)

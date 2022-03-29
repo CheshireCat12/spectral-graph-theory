@@ -1,6 +1,10 @@
 import numpy as np
 
-cpdef np.ndarray random_partition_init(int n_nodes, int n_partitions):
+from rgr.algorithms.conditions.regularity_conditions import RegularityConditions
+from rgr.algorithms.partition_pair import PartitionPair
+from rgr.algorithms.refinement import refinement_degree_based as refinement
+
+cpdef list random_partition_init(int n_nodes, int n_partitions, bint sort_partitions=True):
     """
     Create the initial random partitioning of Alon algorithm.
     The nodes in graph G are partitioned into ``n_partitions`` partitions.
@@ -11,175 +15,121 @@ cpdef np.ndarray random_partition_init(int n_nodes, int n_partitions):
             Number of nodes
         n_partitions: int
             Number of partitions
+        sort_partitions: bool
+            If ``True`` sort the indices in all partitions
 
     Returns:
-        np.ndarray: array of partitions
+        List - List of np.ndarray containing the partitions.
+               Each element of the list contains the idx of the given partition.
     """
     cdef:
-        int prts_cardinality
-        np.ndarray partitions
-    # TODO: make sure the C_0 is correctly taken into account or see what is going on
-    prts_cardinality = n_nodes // n_partitions
+        int prt_size
+        list partitions
+        np.ndarray indices, idx_split
 
-    partitions = np.repeat(range(1, n_partitions+1),
-                           prts_cardinality).astype(DTYPE_STD)
-    np.random.shuffle(partitions)
+    prt_size = n_nodes // n_partitions
+
+    indices = np.random.permutation(n_nodes).astype(dtype=DTYPE_IDX)
+
+    # Split the shuffled indices into the partitions
+    idx_split = np.arange((n_nodes - (n_partitions * prt_size)),
+                          (n_nodes - prt_size + 1),
+                          prt_size)
+    partitions = np.split(indices, idx_split)
+
+    if sort_partitions:
+        partitions = [np.sort(partition) for partition in partitions]
 
     return partitions
 
-cpdef alon_condition_1(int bip_avg_deg, int cls_cardinality, float eps):
-    return bip_avg_deg < (eps**3) * cls_cardinality
-
-cpdef alon_condition_2(adjacency, s_indices, r_indices, s_r_degrees, bip_avg_deg, cls_cardinality, eps):
-    threshold_deviation = (eps**4) * cls_cardinality
-    threshold_n_nodes = (1/8) * (eps**4) * cls_cardinality
-
-    s_degrees = np.asarray(s_r_degrees)[s_indices]
-
-    is_irregular = False
-    # s, r certificates
-    certificates = [[], []]
-    # s, r complements
-    complements = [[], []]
-
-    deviated_nodes_mask = np.abs(s_degrees-bip_avg_deg) >= threshold_deviation
-    # print(f'threshold dev {threshold_deviation}')
-    # print(f'avg deg {bip_avg_deg}')
-    #
-    # print(f'degrees {s_degrees}')
-    # print(f'deviated nodes {deviated_nodes_mask}')
-
-    if np.sum(deviated_nodes_mask) > threshold_n_nodes:
-        is_irregular = True
-
-        s_certs = s_indices[deviated_nodes_mask]
-        s_complements = np.setdiff1d(s_indices, s_certs)
-
-        b_mask = np.asarray(adjacency)[np.ix_(s_certs, r_indices)] > 0
-        b_mask = b_mask.any(0)
-
-        r_certs = r_indices[b_mask]
-        r_compls = np.setdiff1d(r_indices, r_certs)
-
-        certificates = [s_certs.tolist(), r_certs.tolist()]
-        complements = [s_complements.tolist(), r_compls.tolist()]
-
-    return is_irregular, certificates, complements
-
-cpdef find_Yp(s_degrees, s_indices, bip_avg_deg, cls_cardinality, eps):
-    threshold_deviation = (eps ** 4) * cls_cardinality
-    mask = np.abs(s_degrees - bip_avg_deg) >= threshold_deviation
-    yp_i = np.where(mask == True)[0]
-
-    return yp_i
-
-cpdef compute_y0(ngh_dev, s_indices, yp_i, cls_cardinality, eps):
-    threshold_dev = 2 * eps**4 * cls_cardinality
-    rect_mat = ngh_dev[yp_i]
-
-    boolean_mat = rect_mat > threshold_dev
-    cardinality_by0s = np.sum(boolean_mat, axis=1)
-
-    y0_idx = np.argmax(cardinality_by0s)
-    aux = yp_i[y0_idx]
-
-    y0 = s_indices[aux]
-
-    if cardinality_by0s[y0_idx] > (eps ** 4 * cls_cardinality / 4.0):
-        cert_s = s_indices[boolean_mat[y0_idx]]
-        return cert_s, y0
-    else:
-        return None, y0
-
-
-
-
-cpdef alon_condition_3(adjacency, s_indices, r_indices, s_r_degrees, bip_adj, bip_avg_deg, cls_cardinality, eps):
-    is_irregular = False
-    # s, r certificates
-    certificates = [[], []]
-    # s, r complements
-    complements = [[], []]
-
-    ngh_dev = neighbourhood_deviation(bip_adj, bip_avg_deg, cls_cardinality)
-
-    s_degrees = np.asarray(s_r_degrees)[s_indices]
-
-    yp_filter = find_Yp(s_degrees, s_indices, bip_avg_deg, cls_cardinality, eps)
-
-    if np.asarray(yp_filter).size == 0:
-        is_irregular = True
-        return is_irregular, certificates, complements
-
-    s_certs, y0 = compute_y0(ngh_dev, s_indices, yp_filter, cls_cardinality, eps)
-
-    if s_certs is None:
-        is_irregular = False
-        return is_irregular, certificates, complements
-    else:
-        assert np.array_equal(np.intersect1d(s_certs, s_indices), s_certs) == True, "cert_is not subset of s_indices"
-        assert (y0 in s_indices) == True, "y0 not in s_indices"
-
-        is_irregular = True
-        b_mask = np.asarray(adjacency)[np.ix_(np.array([y0]), r_indices)] > 0
-        r_certs = r_indices[b_mask[0]]
-        assert np.array_equal(np.intersect1d(r_certs, r_indices), r_certs) == True, "cert_is not subset of s_indices"
-
-        # [BUG] cannot do set(s_indices) - set(s_certs)
-        s_compls = np.setdiff1d(s_indices, s_certs)
-        r_compls = np.setdiff1d(r_indices, r_certs)
-        assert s_compls.size + s_certs.size == cls_cardinality, "Wrong cardinality"
-        assert r_compls.size + r_certs.size == cls_cardinality, "Wrong cardinality"
-
-        return is_irregular, [r_certs.tolist(), s_certs.tolist()], [r_compls.tolist(), s_compls.tolist()]
-
-cpdef neighbourhood_deviation(bip_adj, bip_avg_deg, cls_cardinality):
-    mat = np.matmul(np.asarray(bip_adj.T), np.asarray(bip_adj))
-    print(mat)
-    mat = mat - (bip_avg_deg**2) / cls_cardinality
-
-    return mat
-
-
-cpdef classes_pair(int[:, ::1] adjacency, int[::1] classes, int r, int s, eps):
+cpdef tuple check_regularity_pairs(np.ndarray adjacency,
+                                   list partitions,
+                                   double epsilon):
     """
     
     Args:
         adjacency: 
-        classes: 
-        r: 
-        s: 
-        eps: 
+        partitions: 
+        epsilon: 
 
     Returns:
 
     """
-    s_indices = np.where(np.asarray(classes)==s)[0]
-    r_indices = np.where(np.asarray(classes)==r)[0]
+    cdef:
+        int r, s
+        int n_partitions, n_irregular_pairs
+        double sze_idx
+        list certificates_complements, regular_partitions
+        list crts_cmplts
+        PartitionPair pair
 
-    # Bipartite adjacency matrix
-    bip_adj = np.asarray(adjacency)[np.ix_(s_indices, r_indices)]
+    n_partitions = len(partitions)
+    n_irregular_pairs, sze_idx = 0, 0.
+    certificates_complements = []
+    regular_partitions = []
 
-    # Cardinality of the classes
-    cls_cardinality = bip_adj.shape[0]
+    for r in range(2, n_partitions):
+        certificates_complements.append([])
+        regular_partitions.append([])
 
-    bip_sum_edges = np.sum(bip_adj)
+        for s in range(1, r):
+            pair = PartitionPair(adjacency, partitions, r, s, eps=epsilon)
 
-    # Bipartite average degree
-    # To have a faster summation of the bipartite degrees
-    # I directly sum the elements over the whole matrix,
-    # so I don't have to divide the sum by 2
-    bip_avg_deg = bip_sum_edges / cls_cardinality
-    # np.sum(np.sum(bip_adj, axis=0) + np.sum(bip_adj, axis=1)) / (2 * cls_cardinality)
+            reg_cond = RegularityConditions(pair)
+            is_cond_verified, certificates, complements = reg_cond.conditions()
 
-    # Bipartite edge density
-    bip_edge_density = bip_sum_edges / (cls_cardinality**2)
+            crts_cmplts = [certificates, complements] if is_cond_verified else [[[], []], [[], []]]
+            certificates_complements[r - 2].append(crts_cmplts)
 
-    s_r_degrees = np.zeros(classes.shape[0], dtype=DTYPE_ADJ)
-    s_r_degrees[s_indices] = np.sum(bip_adj, axis=1)
-    s_r_degrees[r_indices] = np.sum(bip_adj, axis=0)
+            if is_cond_verified and certificates[0]:
+                n_irregular_pairs += 1
+            elif is_cond_verified:
+                regular_partitions[r - 2].append(s)
 
-    print(alon_condition_1(bip_avg_deg, cls_cardinality=cls_cardinality, eps=eps))
-    print(alon_condition_2(adjacency, s_indices, r_indices, s_r_degrees, bip_avg_deg, cls_cardinality, eps))
-    print(alon_condition_3(adjacency, s_indices, r_indices, s_r_degrees, bip_adj, bip_avg_deg, cls_cardinality, eps))
-    neighbourhood_deviation(bip_adj, bip_avg_deg, cls_cardinality)
+            sze_idx += pair.bip_density ** 2
+
+    sze_idx *= (1.0 / n_partitions ** 2)
+
+    return n_irregular_pairs, certificates_complements, regular_partitions
+
+cpdef bint is_partitioning_regular(int n_irregular_pairs, int n_partitions, double epsilon):
+    """
+    
+    Args:
+        n_irregular_pairs: 
+        n_partitions: 
+        epsilon: 
+
+    Returns:
+
+    """
+    cdef double threshold = epsilon * ((n_partitions * (n_partitions - 1)) / 2.)
+
+    return n_irregular_pairs <= threshold
+
+cpdef void regularity(Graph graph, int n_partitions, double epsilon):
+    cdef:
+        int n_irregular_pairs
+        list partitions
+        list certificates_complements, regular_partitions
+
+    partitions = random_partition_init(graph.n_nodes, n_partitions)
+
+    while True:
+        tmp = check_regularity_pairs(graph.adjacency,
+                                     partitions,
+                                     epsilon)
+        n_irregular_pairs, certificates_complements, regular_partitions = tmp
+
+        if is_partitioning_regular(n_irregular_pairs,
+                                   n_partitions,
+                                   epsilon):
+            print('regular')
+            break
+
+        # check if max compression
+
+        refinement(graph.adjacency,
+                   partitions,
+                   certificates_complements,
+                   epsilon)
