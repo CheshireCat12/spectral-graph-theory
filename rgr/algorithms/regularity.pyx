@@ -2,7 +2,7 @@ import numpy as np
 
 from rgr.algorithms.conditions.regularity_conditions import RegularityConditions
 from rgr.algorithms.partition_pair import PartitionPair
-from rgr.algorithms.refinement import refinement_degree_based as refinement
+from rgr.algorithms.refinement import Refinement
 
 cpdef list random_partition_init(int n_nodes, int n_partitions, bint sort_partitions=True):
     """
@@ -60,7 +60,7 @@ cpdef tuple check_regularity_pairs(np.ndarray adjacency,
         int n_partitions, n_irregular_pairs
         double sze_idx
         list certificates_complements, regular_partitions
-        list crts_cmplts
+        CertificatesComplements certs_compls
         PartitionPair pair
 
     n_partitions = len(partitions)
@@ -76,12 +76,11 @@ cpdef tuple check_regularity_pairs(np.ndarray adjacency,
             pair = PartitionPair(adjacency, partitions, r, s, eps=epsilon)
 
             reg_cond = RegularityConditions(pair)
-            is_cond_verified, certificates, complements = reg_cond.conditions()
+            is_cond_verified, certs_compls = reg_cond.conditions()
 
-            crts_cmplts = [certificates, complements] if is_cond_verified else [[[], []], [[], []]]
-            certificates_complements[r - 2].append(crts_cmplts)
+            certificates_complements[r - 2].append(certs_compls)
 
-            if is_cond_verified and certificates[0]:
+            if is_cond_verified and certs_compls.r_certs:
                 n_irregular_pairs += 1
             elif is_cond_verified:
                 regular_partitions[r - 2].append(s)
@@ -129,7 +128,7 @@ cpdef void regularity(Graph graph, int n_partitions, double epsilon):
 
         # check if max compression
 
-        refinement(graph.adjacency,
+        Refinement(graph.adjacency,
                    partitions,
                    certificates_complements,
                    epsilon)

@@ -10,38 +10,41 @@ cdef class RegularityConditions:
         return self.pair.eps ** 4 * self.pair.prts_size
 
     cpdef tuple conditions(self):
-        # s, r certificates
-        certificates = [[], []]
-        # s, r complements
-        complements = [[], []]
+        cdef:
+            bint is_condition_verified
+            list conditions_to_verify
+            CertificatesComplements certs_compls
 
-        if self.condition_1(certificates, complements):
-            return True, certificates, complements
-        elif self.condition_2(certificates, complements):
-            return True, certificates, complements
-        elif self.condition_3(certificates, complements):
-            return True, certificates, complements
+        conditions_to_verify = [
+            self.condition_1,
+            self.condition_2,
+            self.condition_3,
+        ]
+
+        for idx, condition in enumerate(conditions_to_verify):
+            is_condition_verified, certs_compls = condition()
+
+            if is_condition_verified:
+                print(idx)
+                return is_condition_verified, certs_compls
         else:
-            return False, None, None
+            return False, CertificatesComplements()
 
-    cpdef bint condition_1(self, list certificates, list complements):
+    cpdef tuple condition_1(self):
         """
         
-        Args:
-            certificates: 
-            complements: 
-
         Returns:
 
         """
         is_regular = self.pair.bip_avg_deg < (self.pair.eps ** 3) * self.pair.prts_size
 
-        return is_regular
+        return is_regular, CertificatesComplements()
 
-    cpdef bint condition_2(self, list certificates, list complements):
+    cpdef tuple condition_2(self):
         threshold_n_nodes = (1 / 8) * self.threshold_dev
 
         is_irregular = False
+        certificates, complements = None, None
 
         deviated_nodes_mask = np.abs(self.pair.s_degrees - self.pair.bip_avg_deg) >= self.threshold_dev
 
@@ -57,30 +60,28 @@ cdef class RegularityConditions:
             r_certs = self.pair.r_indices[b_mask]
             r_complements = np.setdiff1d(self.pair.r_indices, r_certs)
 
-            certificates[:] = [r_certs.tolist(), s_certs.tolist()]
-            complements[:] = [r_complements.tolist(), s_complements.tolist()]
+            certificates = [r_certs, s_certs]
+            complements = [r_complements, s_complements]
 
-        return is_irregular
+        return is_irregular, CertificatesComplements(certificates, complements)
 
-    cpdef bint condition_3(self, list certificates, list complements):
+    cpdef tuple condition_3(self):
         is_irregular = False
-        # print(f'bip_adj {self.pair.bip_adj}')
+        certificates, complements = None, None
 
         ngh_dev = neighbourhood_deviation(self.pair.bip_adj,
                                           self.pair.bip_avg_deg,
                                           self.pair.prts_size)
-        print(f'neigh def {ngh_dev}')
 
         yp_filter = find_Yp(self.pair.s_degrees,
                             self.pair.bip_avg_deg,
                             self.pair.prts_size,
                             self.pair.eps)
-        print('yp_filter')
-        print(yp_filter)
 
         if yp_filter.size == 0:
             is_irregular = True
-            return is_irregular
+
+            return is_irregular, CertificatesComplements()
 
         s_certs, y0 = compute_y0(ngh_dev,
                                  self.pair.s_indices,
@@ -88,14 +89,10 @@ cdef class RegularityConditions:
                                  self.pair.prts_size,
                                  self.pair.eps)
 
-        print(s_certs)
-        if s_certs is None:
-            is_irregular = False
-            return is_irregular
-        else:
+        if s_certs.size > 0:
             assert np.array_equal(np.intersect1d(s_certs, self.pair.s_indices),
                                   s_certs) == True, "cert_is not subset of s_indices"
-            assert (y0 in self.pair.s_indices) == True, "y0 not in s_indices"
+            assert y0 in self.pair.s_indices, "y0 not in s_indices"
 
             is_irregular = True
             b_mask = self.pair.adjacency[np.ix_(np.array([y0]), self.pair.r_indices)] > 0
@@ -109,9 +106,10 @@ cdef class RegularityConditions:
             assert s_complements.size + s_certs.size == self.pair.prts_size, "Wrong cardinality"
             assert r_complements.size + r_certs.size == self.pair.prts_size, "Wrong cardinality"
 
-            certificates[:] = [r_certs.tolist(), s_certs.tolist()]
-            complements[:] = [r_complements.tolist(), s_complements.tolist()]
-            return is_irregular
+            certificates = [r_certs, s_certs]
+            complements = [r_complements, s_complements]
+
+        return is_irregular, CertificatesComplements(certificates, complements)
 
 cpdef find_Yp(s_degrees, bip_avg_deg, cls_cardinality, eps):
     threshold_deviation = (eps ** 4) * cls_cardinality
@@ -121,7 +119,7 @@ cpdef find_Yp(s_degrees, bip_avg_deg, cls_cardinality, eps):
     return yp_i
 
 cpdef compute_y0(ngh_dev, s_indices, yp_i, cls_cardinality, eps):
-    threshold_dev = 2 * eps**4 * cls_cardinality
+    threshold_dev = 2 * eps ** 4 * cls_cardinality
     rect_mat = ngh_dev[yp_i]
 
     boolean_mat = rect_mat > threshold_dev
@@ -138,10 +136,9 @@ cpdef compute_y0(ngh_dev, s_indices, yp_i, cls_cardinality, eps):
     else:
         return None, y0
 
-
 cpdef neighbourhood_deviation(bip_adj, bip_avg_deg, cls_cardinality):
     mat = np.matmul(np.asarray(bip_adj.T), np.asarray(bip_adj))
     print(mat)
-    mat = mat - (bip_avg_deg**2) / cls_cardinality
+    mat = mat - (bip_avg_deg ** 2) / cls_cardinality
 
     return mat

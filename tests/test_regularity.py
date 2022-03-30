@@ -64,18 +64,18 @@ def test_pair():
     regular_partitions = defaultdict(list)
     n_irregular_pairs = 0
     sze_idx = 0
-    # for r in range(2, n_partitions + 1):
-    #     for s in range(1, r):
-    #         print()
-    #         print(f'r: {r}, s: {s}')
-    #         pair = PartitionPair(graph.adjacency, partitions, r, s, eps=0.285)
-    #         print(pair.bip_adj)
-    #         print(f'r indices', pair.r_indices)
-    #         print(f's indices', pair.s_indices)
-    #         print(f'bip avg def {pair.bip_avg_deg}')
-    #         reg_cond = RegularityConditions(pair)
+    for r in range(2, n_partitions + 1):
+        for s in range(1, r):
+            print()
+            print(f'r: {r}, s: {s}')
+            pair = PartitionPair(graph.adjacency, partitions, r, s, eps=0.285)
+            print(pair.bip_adj)
+            print(f'r indices', pair.r_indices)
+            print(f's indices', pair.s_indices)
+            print(f'bip avg def {pair.bip_avg_deg}')
+            reg_cond = RegularityConditions(pair)
     #
-    #         print(reg_cond.conditions())
+            print(reg_cond.conditions())
     #         is_cond_verified, certificates, complements = reg_cond.conditions()
     #         if is_cond_verified:
     #             certificates_complements[r - 2].append([certificates, complements])

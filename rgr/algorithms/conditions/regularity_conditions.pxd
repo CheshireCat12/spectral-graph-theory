@@ -1,3 +1,4 @@
+from rgr.algorithms.certificates_complements cimport CertificatesComplements
 from rgr.algorithms.partition_pair cimport PartitionPair
 
 
@@ -8,6 +9,6 @@ cdef class RegularityConditions:
 
     cpdef tuple conditions(self)
 
-    cpdef bint condition_1(self, list certificates, list complements)
-    cpdef bint condition_2(self, list certificates, list complements)
-    cpdef bint condition_3(self, list certificates, list complements)
+    cpdef tuple condition_1(self)
+    cpdef tuple condition_2(self)
+    cpdef tuple condition_3(self)

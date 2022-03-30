@@ -1,277 +1,266 @@
 import numpy as np
 
-cpdef double density(np.ndarray adjacency,
-                     np.ndarray indices_a,
-                     np.ndarray indices_b):
-    """
-    Compute the edge density between two set of vertices
+from rgr.algorithms.certificates_complements import CertificatesComplements
+
+
+cdef class Refinement:
+
+    def __init__(self,
+                 np.ndarray adjacency,
+                 list partitions,
+                 list certificates_complements,
+                 double epsilon,
+                 double threshold=0.5):
+        """
+
+        Args:
+            adjacency:
+            partitions:
+            certificates_complements:
+            epsilon:
+            threshold:
+        """
+        self.adjacency = adjacency
+        self.partitions = partitions
+        self.certificates_complements = certificates_complements
+        self.epsilon = epsilon
+
+        self.n_nodes = 0 # adjacency.shape
+        self.n_partitions = len(partitions)
+        self.partition_size = len(partitions[-1])
+
+        self.pair_densities = self._pairwise_densities()
+
+        self.threshold = 0.5
+
+        self.partition_idx = 0
+        self.new_partitions = {0: []}
+
+    cpdef double _density(self,
+                          np.ndarray adjacency,
+                          np.ndarray indices_a,
+                          np.ndarray indices_b):
+        """
+        Compute the edge density between two set of vertices
     
-    Args:
-        adjacency: np.ndarray
-            Adjacency matrix
-        indices_a: np.ndarray
-            Indices of the first set
-        indices_b: np.ndarray
-            Indices of the second set
-
-    Returns: float - Edge density
-
-    """
-    cdef:
-        int n_nodes_a, n_nodes_b
-        int max_num_edges
-        int n_edges
-    n_nodes_a = indices_a.size
-    n_nodes_b = indices_b.size
-    max_num_edges = n_nodes_a * n_nodes_b
-    n_edges = np.sum(adjacency[np.ix_(indices_a, indices_b)])
-
-    return n_edges / max_num_edges
-
-cpdef np.ndarray pairwise_densities(np.ndarray adjacency, list partitions):
-    """
-    Compute the pairwise density between the all the partitions
+        Args:
+            adjacency: np.ndarray
+                Adjacency matrix
+            indices_a: np.ndarray
+                Indices of the first set
+            indices_b: np.ndarray
+                Indices of the second set
     
-    Args:
-        adjacency: np.ndarray
-            Adjacency matrix
-        partitions: list
-            Array containing the idx for each partition
+        Returns: float - Edge density
+    
+        """
+        cdef:
+            int n_nodes_a, n_nodes_b
+            int max_num_edges
+            int n_edges
+        n_nodes_a = indices_a.size
+        n_nodes_b = indices_b.size
+        max_num_edges = n_nodes_a * n_nodes_b
+        n_edges = np.sum(adjacency[np.ix_(indices_a, indices_b)])
 
-    Returns: np.ndarray - Array of intra-partition density
+        return n_edges / max_num_edges
 
-    """
-    cdef np.ndarray densities
+    cpdef np.ndarray _pairwise_densities(self):
+        """
+        Compute the pairwise density between the all the partitions
+    
+        Args:
+            adjacency: np.ndarray
+                Adjacency matrix
+            partitions: list
+                Array containing the idx for each partition
+    
+        Returns: np.ndarray - Array of intra-partition density
+    
+        """
+        cdef np.ndarray densities
 
-    densities = np.array([density(adjacency, partition, partition)
-                          for partition in partitions])
+        densities = np.array([self.density(self.adjacency, partition, partition)
+                              for partition in self.partitions])
 
-    return densities
+        return densities
 
-def choose_candidate(adjacency, partitions, in_densities, s, irregulars):
-    """ This function chooses a class between the irregular ones (d(ci,cj), 1-|d(ci,ci)-d(cj,cj)|)
-    :param in_densities: list(float), precomputed densities to speed up the calculations
-    :param s: int, the class which all the other classes are compared to
-    :param irregulars: list(int), the list of irregular classes
-    """
-    candidate_idx = -1
-    candidate = -1
+    cpdef _refinement_degree_based(self):
+        """
+        
+        Returns:
 
-    # Exploit the precalculated densities
-    s_dens = in_densities[s]
-    for r in irregulars:
-        s_indices = partitions[s]  # np.where(self.classes == s)[0]
-        r_indices = partitions[r]  # np.where(self.classes == r)[0]
-        r_idx = density(adjacency, s_indices, r_indices) + (1 - abs(s_dens - in_densities[r]))
-        if r_idx > candidate_idx:
-            candidate_idx = r_idx
-            candidate = r
+        """
+        cdef:
+            CertificatesComplements cur_certs_compls
 
-    return candidate
+        to_be_refined = list(range(1, self.n_partitions))
 
-def fill_new_set(adjacency, prt_size, new_set, compls, maximize_density):
-    """ Find nodes that can be added
-    Move from compls the nodes in can_be_added until we either finish the nodes or reach the desired cardinality
-    :param new_set: np.array(), array of indices of the set that must be augmented
-    :param compls: np.array(), array of indices used to augment the new_set
-    :param maximize_density: bool, used to augment or decrement density
-    """
+        old_cardinality = self.partition_size
+        self.partition_size //= 2
 
-    if maximize_density:
-        nodes = adjacency[np.ix_(new_set, compls)] == 1.0
-        #nodes = self.sim_mat[np.ix_(new_set, compls)] >= 0.5
+        while to_be_refined:
+            s = to_be_refined.pop(0)
+            irregular_r_indices = [r for r in to_be_refined
+                                   if self.certificates_complements[r - 2][s - 1].r_certs]
 
-        # These are the nodes that can be added to certs, we take the most connected ones with all the others
+            # If class s has irregular classes
+            if irregular_r_indices:
+                r = self._choose_candidate(s, irregular_r_indices)
+                to_be_refined.remove(r)
+
+                cur_certs_compls = self.certificates_complements[r - 2][s - 1]
+
+                # Merging the two complements
+                compls = np.append(cur_certs_compls.s_compls, cur_certs_compls.r_compls)
+
+                set1_s, set2_s, compls = self._update_certs(cur_certs_compls.s_certs, compls)
+                set1_r, set2_r, compls = self._update_certs(cur_certs_compls.r_certs, compls)
+
+                self._update_partitions(set1_s, set2_s)
+                self._update_partitions(set1_r, set2_r)
+
+                if compls.size > 0:
+                    self.new_partitions[0].extend(compls)
+            else:
+                # The class is e-reg with all the others or it does not have irregular classes
+
+                # Sort by indegree and unzip the structure
+                s_indices = self.partitions[s]
+                s_indegs = np.sum(self.adjacency[np.ix_(s_indices, s_indices)], axis=1).argsort()
+
+                set1 = s_indices[s_indegs[0:][::2]]
+                set2 = s_indices[s_indegs[1:][::2]]
+
+                self._update_partitions(set1, set2)
+
+        self.n_partitions *= 2
+
+        self.new_partitions[0].extend(self.partitions[0])
+        self.new_partitions[0] = np.array(self.new_partitions[0], dtype=DTYPE_IDX)
+
+        if self.new_partitions[0].size >= (self.epsilon * self.n_nodes):
+            if self.new_partitions[0].size > self.n_partitions:
+                pass
+                # TODO: handle the C_0 > size_partition
+                # self.new_partitions[0][:self.n_partitions]
+            else:
+                return False
+
+        # TODO: modify the dict to list of partitions
+        # partitions *= -1
+
+        return True
+
+    cpdef _choose_candidate(self, int s, list irregulars):
+        """
+        
+        Args:
+            s: int
+            irregulars: list
+
+        Returns:
+
+        """
+        cdef:
+            int candidate = -1
+            double candidate_dens, s_dens, r_dens
+
+        candidate_dens = float('-inf')
+
+        # Exploit the precalculated densities
+        s_dens = self.pair_densities[s]
+        for r in irregulars:
+            r_dens = self._density_candidate(self.partitions[s],
+                                             self.partitions[r],
+                                             s_dens,
+                                             r)
+            if r_dens > candidate_dens:
+                candidate_dens = r_dens
+                candidate = r
+
+        return candidate
+
+    cdef double _density_candidate(self,
+                                   np.ndarray s_indices,
+                                   np.ndarray r_indices,
+                                   double s_dens,
+                                   int r):
+        return self._density(self.adjacency, s_indices, r_indices) + (1 - abs(s_dens - self.pair_densities[r]))
+
+    cpdef tuple _update_certs(self, np.ndarray cert, np.ndarray compls):
+        """
+        
+        Args:
+            cert: np.ndarray
+            compls: np.ndarray
+            dens_cert: double
+
+        Returns:
+
+        """
+        cdef:
+            double dens_cert
+
+        dens_cert = self._density(self.adjacency, cert, cert)
+        degrees = np.sum(self.adjacency[np.ix_(cert, cert)], axis=1).argsort()[::-1]
+
+        if dens_cert > self.threshold:
+            set1 = cert[degrees[0::2]]
+            set2 = cert[degrees[1::2]]
+            maximize_density = True
+        else:
+            set1 = np.random.choice(cert, cert.size // 2, replace=False)
+            set2 = np.setdiff1d(cert, set1)
+            maximize_density = False
+
+        set1, compls = self._fill_new_set(set1, compls, maximize_density)
+        set2, compls = self._fill_new_set(set2, compls, maximize_density)
+
+        return set1, set2, compls
+
+    def _fill_new_set(self, new_set, compls, maximize_density):
+        """ Find nodes that can be added
+        Move from compls the nodes in can_be_added until we either finish the nodes or reach the desired cardinality
+        :param new_set: np.array(), array of indices of the set that must be augmented
+        :param compls: np.array(), array of indices used to augment the new_set
+        :param maximize_density: bool, used to augment or decrement density
+        """
+
+        val = 1 if maximize_density else 0
+        nodes = self.adjacency[np.ix_(new_set, compls)] == val
+
         to_add = np.unique(np.tile(compls, (len(new_set), 1))[nodes], return_counts=True)
         to_add = to_add[0][to_add[1].argsort()]
-    else:
-        nodes = adjacency[np.ix_(new_set, compls)] == 0.0
-        #nodes = self.sim_mat[np.ix_(new_set, compls)] < 0.5
 
-        # These are the nodes that can be added to certs, we take the less connected ones with all the others
-        to_add = np.unique(np.tile(compls, (len(new_set), 1))[nodes], return_counts=True)
-        to_add = to_add[0][to_add[1].argsort()[::-1]]
+        if maximize_density:
+            to_add = to_add[::-1]
 
-    while new_set.size < prt_size:
+        while new_set.size < self.partition_size:
 
-        # If there are nodes in to_add, we keep moving from compls to new_set
-        if to_add.size > 0:
-            node, to_add = to_add[-1], to_add[:-1]
-            new_set = np.append(new_set, node)
-            compls = np.delete(compls, np.argwhere(compls == node))
+            # If there are nodes in to_add, we keep moving from compls to new_set
+            if to_add.size > 0:
+                node, to_add = to_add[-1], to_add[:-1]
+                new_set = np.append(new_set, node)
+                compls = np.delete(compls, np.argwhere(compls == node))
 
-        else:
-            # If there aren't candidate nodes, we keep moving from complements
-            # to certs until we reach the desired cardinality
-            node, compls = compls[-1], compls[:-1]
-            new_set = np.append(new_set, node)
+            else:
+                # If there aren't candidate nodes, we keep moving from complements
+                # to certs until we reach the desired cardinality
+                node, compls = compls[-1], compls[:-1]
+                new_set = np.append(new_set, node)
 
-    return new_set, compls
+        return new_set, compls
 
-cpdef list irregular_r_partitions(list certificates_complements, list to_be_refined, int s):
-    cdef list irregular_r_indices = []
+    cpdef _update_partitions(self, np.ndarray part1, np.ndarray part2):
+        self._update_partition(part1)
+        self._update_partition(part2)
 
-    for r in to_be_refined:
-        if certificates_complements[r - 2][s - 1][0][0]:
-            irregular_r_indices.append(r)
+    cpdef _update_partition(self, np.ndarray partition):
+        self.partition_idx -= 1
+        self.new_partitions[self.partition_idx] = partition
 
-    return irregular_r_indices
-
-cpdef refinement_degree_based(adjacency,
-                              partitions,
-                              certificates_complements,
-                              epsilon):
-    """ In-degree based refinemet. The refinement exploits the internal structure of the classes of a given partition.
-    :returns: True if the new partition is valid, False otherwise
-    """
-    cdef:
-        int n_partitions, partition_size
-        double threshold
-
-    threshold = 0.5
-    n_partitions = len(partitions)
-    partition_size = len(partitions[1])
-
-
-    to_be_refined = list(range(1, n_partitions))
-
-    old_cardinality = partition_size
-    partition_size //= 2
-    in_densities = pairwise_densities(adjacency, partitions[1:])
-    new_k = 0
-    new_partitions = dict()
-
-    while to_be_refined:
-        s = to_be_refined.pop(0)
-        irregular_r_indices = irregular_r_partitions(certificates_complements,
-                                                     to_be_refined,
-                                                     s)
-
-
-        # If class s has irregular classes
-        if irregular_r_indices:
-
-            # Choose candidate based on the inside-outside density index
-            r = choose_candidate(adjacency,
-                                 partitions,
-                                 in_densities,
-                                 s,
-                                 irregular_r_indices)
-            to_be_refined.remove(r)
-
-            s_certs = np.array(certificates_complements[r - 2][s - 1][0][1]).astype('int32')
-            s_compls = np.array(certificates_complements[r - 2][s - 1][1][1]).astype('int32')
-            assert s_certs.size + s_compls.size == old_cardinality
-
-            r_compls = np.array(certificates_complements[r - 2][s - 1][1][0]).astype('int32')
-            r_certs = np.array(certificates_complements[r - 2][s - 1][0][0]).astype('int32')
-            assert r_certs.size + r_compls.size == old_cardinality
-
-            # Merging the two complements
-            compls = np.append(s_compls, r_compls)
-
-            # Calculating certificates densities
-            dens_s_cert = density(adjacency, s_certs, s_certs)
-            dens_r_cert = density(adjacency, r_certs, r_certs)
-
-            for cert, dens in [(s_certs, dens_s_cert), (r_certs, dens_r_cert)]:
-
-                # Indices of the cert ordered by in-degree, it doesn't matter if we reverse the list as long as we unzip it
-                degs = adjacency[np.ix_(cert, cert)].sum(1).argsort()[::-1]
-                #degs = self.sim_mat[np.ix_(cert, cert)].sum(1).argsort()[::-1]
-
-                if dens > threshold:
-                    # Certificates high density branch
-
-                    # Unzip them in half to preserve seeds
-                    set1 = cert[degs[0:][::2]]
-                    set2 = cert[degs[1:][::2]]
-
-                    # Adjust cardinality of the new set to the desired cardinality
-                    set1, compls = fill_new_set(adjacency, prt_size, set1, compls, True)
-                    set2, compls = fill_new_set(adjacency, prt_size, set2, compls, True)
-
-                    # # Handling of odd classes
-                    # new_k -= 1
-                    # self.classes[set1] = new_k
-                    # if set1.size > self.classes_cardinality:
-                    #     self.classes[set1[-1]] = 0
-                    # new_k -= 1
-                    # self.classes[set2] = new_k
-                    # if set2.size > self.classes_cardinality:
-                    #     self.classes[set2[-1]] = 0
-
-                else:
-                    # Certificates low density branch
-                    set1 = np.random.choice(cert, len(cert) // 2, replace=False)
-                    set2 = np.setdiff1d(cert, set1)
-
-                    # Adjust cardinality of the new set to the desired cardinality
-                    set1, compls = fill_new_set(adjacency, prt_size, set1, compls, False)
-                    set2, compls = fill_new_set(adjacency, prt_size, set2, compls, False)
-
-                # Handling of odd classes
-                new_k -= 1
-                partitions[set1] = new_k
-                if set1.size > prt_size:
-                    partitions[set1[-1]] = 0
-
-                new_k -= 1
-                partitions[set2] = new_k
-                if set1.size > prt_size:
-                    partitions[set1[-1]] = 0
-                # # Handling of odd classes
-                # new_k -= 1
-                # self.classes[set1] = new_k
-                # if set1.size > self.classes_cardinality:
-                #     self.classes[set1[-1]] = 0
-
-                # new_k -= 1
-                # self.classes[set2] = new_k
-                # if set2.size > self.classes_cardinality:
-                #     self.classes[set2[-1]] = 0
-
-                # # Handle special case when there are still some complements not assigned
-                # if compls.size > 0:
-                #     self.classes[compls] = 0
-
-        else:
-            # The class is e-reg with all the others or it does not have irregular classes
-
-            # Sort by indegree and unzip the structure
-            s_indices = partitions[s]
-            s_indegs = np.sum(adjacency[np.ix_(s_indices, s_indices)], axis=1).argsort()
-
-            set1 = s_indices[s_indegs[0:][::2]]
-            set2 = s_indices[s_indegs[1:][::2]]
-
-            # Handling of odd classes
-            new_k -= 1
-            new_partitions[new_k] = set1
-
-            if set1.size > partition_size:
-                last, new_partitions[new_k] = new_partitions[new_k][-1], new_partitions[new_k][::-1]
-                new_partitions.get(0, []).append(last)
-
-            new_k -= 1
-            new_partitions[new_k] = set2
-            if set2.size > partition_size:
-                last, new_partitions[new_k] = new_partitions[new_k][-1], new_partitions[new_k][::-1]
-                new_partitions.get(0, []).append(last)
-
-    n_partitions *= 2
-
-    # Check validity of class C0, if invalid and enough nodes, distribute the exceeding nodes among the classes
-    c0_indices = partitions[0]
-    if c0_indices.size >= (epsilon * adjacency.shape[0]):
-        if c0_indices.size > prt_size:
-            partitions[c0_indices[:n_partitions]] = np.array(range(1, n_partitions + 1)) * -1
-        else:
-            print('[ refinement ] Invalid cardinality of C_0')
-            return False
-
-    partitions *= -1
-
-    # if not partition_correct(self):
-    #     ipdb.set_trace()
-    return True
+        if partition.size > self.partition_size:
+            last, self.new_partitions[self.partition_idx] = self.new_partitions[self.partition_idx][-1], \
+                                                            self.new_partitions[self.partition_idx][::-1]
+            self.new_partitions[0].append(last)

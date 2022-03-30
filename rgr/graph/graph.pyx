@@ -1,5 +1,6 @@
 import numpy as np
 
+
 cdef class Graph:
     """
     Abstract class of Graph
