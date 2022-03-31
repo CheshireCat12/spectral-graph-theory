@@ -1,7 +1,7 @@
 import numpy as np
 
 
-cpdef np.ndarray degrees(Graph graph):
+cpdef np.ndarray[DTYPE_STD_t, ndim=1] degrees(Graph graph):
     """
     Compute the degree of all the nodes
     

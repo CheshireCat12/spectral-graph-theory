@@ -1,14 +1,22 @@
 import numpy as np
-cimport numpy as np
+cimport cython
 
 cdef class RegularityConditions:
+    """Check if the Alon's regularity conditions are fulfilled."""
+
     def __init__(self, PartitionPair pair):
+        """
+
+        Args:
+            pair: PartitionPair
+        """
         self.pair = pair
 
-    @property
-    def threshold_dev(self):
-        return self.pair.eps ** 4 * self.pair.prts_size
+        # Threshold of the deviation of the degree from the average bipartite degree
+        self.threshold_dev = self.pair.eps ** 4 * self.pair.prts_size
 
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
     cpdef tuple conditions(self):
         cdef:
             bint is_condition_verified
@@ -25,7 +33,6 @@ cdef class RegularityConditions:
             is_condition_verified, certs_compls = condition()
 
             if is_condition_verified:
-                print(idx)
                 return is_condition_verified, certs_compls
         else:
             return False, CertificatesComplements()
@@ -36,11 +43,27 @@ cdef class RegularityConditions:
         Returns:
 
         """
+        cdef:
+            bint is_regular
+
         is_regular = self.pair.bip_avg_deg < (self.pair.eps ** 3) * self.pair.prts_size
 
         return is_regular, CertificatesComplements()
 
     cpdef tuple condition_2(self):
+        """
+        
+        Returns:
+
+        """
+        cdef:
+            bint is_irregular
+            double threshold_n_nodes
+            list certificates, complements
+            np.ndarray deviated_nodes_mask, b_mask
+            np.ndarray s_certs, r_certs
+            np.ndarray s_complements, r_complements
+
         threshold_n_nodes = (1 / 8) * self.threshold_dev
 
         is_irregular = False
@@ -66,6 +89,20 @@ cdef class RegularityConditions:
         return is_irregular, CertificatesComplements(certificates, complements)
 
     cpdef tuple condition_3(self):
+        """
+        
+        Returns:
+
+        """
+        cdef:
+            bint is_irregular
+            list certificates, complements
+            np.ndarray deviated_nodes_mask, b_mask
+            np.ndarray s_certs, r_certs
+            np.ndarray s_complements, r_complements
+            np.ndarray ngh_dev
+            np.ndarray yp_filter, y0
+
         is_irregular = False
         certificates, complements = None, None
 
@@ -75,8 +112,7 @@ cdef class RegularityConditions:
 
         yp_filter = find_Yp(self.pair.s_degrees,
                             self.pair.bip_avg_deg,
-                            self.pair.prts_size,
-                            self.pair.eps)
+                            self.threshold_dev)
 
         if yp_filter.size == 0:
             is_irregular = True
@@ -111,14 +147,51 @@ cdef class RegularityConditions:
 
         return is_irregular, CertificatesComplements(certificates, complements)
 
-cpdef find_Yp(s_degrees, bip_avg_deg, cls_cardinality, eps):
-    threshold_deviation = (eps ** 4) * cls_cardinality
-    mask = np.abs(s_degrees - bip_avg_deg) < threshold_deviation
+cpdef np.ndarray neighbourhood_deviation(np.ndarray[DTYPE_ADJ_t, ndim=2] bip_adj,
+                                         double bip_avg_deg,
+                                         int cls_cardinality):
+    """
+
+    Args:
+        bip_adj: np.ndarray[DTYPE_ADJ_t, ndim=2]
+        bip_avg_deg: double
+        cls_cardinality: int
+
+    Returns:
+        np.ndarray[DTYPE_FLOAT_t, ndim=2]
+    """
+    cdef:
+        np.ndarray[DTYPE_FLOAT_t, ndim=2] mat
+
+    mat = np.matmul(bip_adj.T, bip_adj)
+    mat = mat - (bip_avg_deg ** 2) / cls_cardinality
+
+    return mat
+
+cpdef np.ndarray find_Yp(np.ndarray[DTYPE_STD_t, ndim=1] s_degrees,
+              double bip_avg_deg,
+              double threshold_dev):
+    """
+    
+    Args:
+        s_degrees: 
+        bip_avg_deg: double
+        threshold_dev: double
+
+    Returns:
+
+    """
+
+    mask = np.abs(s_degrees - bip_avg_deg) < threshold_dev
     yp_i = np.where(mask == True)[0]
 
     return yp_i
 
-cpdef compute_y0(ngh_dev, s_indices, yp_i, cls_cardinality, eps):
+cpdef tuple compute_y0(np.ndarray[DTYPE_FLOAT_t, ndim=2] ngh_dev,
+                 np.ndarray[DTYPE_IDX_t, ndim=1] s_indices,
+                 yp_i,
+                 cls_cardinality,
+                 double eps):
     threshold_dev = 2 * eps ** 4 * cls_cardinality
     rect_mat = ngh_dev[yp_i]
 
@@ -136,9 +209,3 @@ cpdef compute_y0(ngh_dev, s_indices, yp_i, cls_cardinality, eps):
     else:
         return None, y0
 
-cpdef neighbourhood_deviation(bip_adj, bip_avg_deg, cls_cardinality):
-    mat = np.matmul(np.asarray(bip_adj.T), np.asarray(bip_adj))
-    print(mat)
-    mat = mat - (bip_avg_deg ** 2) / cls_cardinality
-
-    return mat

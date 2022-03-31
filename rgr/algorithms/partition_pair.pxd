@@ -1,5 +1,7 @@
 cimport numpy as np
 
+from rgr.constants.types cimport DTYPE_ADJ_t
+
 cdef class PartitionPair:
     cdef:
         readonly:

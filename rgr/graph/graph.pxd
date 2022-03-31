@@ -1,6 +1,7 @@
 cimport numpy as np
+from rgr.constants.types cimport DTYPE_ADJ_t
 
 cdef class Graph:
 
     cdef:
-        np.ndarray __adjacency
+        DTYPE_ADJ_t[:, ::1] _adjacency

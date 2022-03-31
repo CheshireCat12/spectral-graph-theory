@@ -3,12 +3,17 @@ import numpy as np
 cdef class PartitionPair:
     """Data class used to handle information between a pair of partitions."""
 
-    def __init__(self, np.ndarray adjacency, list partitions, int r, int s, double eps):
+    def __init__(self,
+                 np.ndarray[DTYPE_ADJ_t, ndim=2] adjacency,
+                 list partitions,
+                 int r,
+                 int s,
+                 double eps):
         """
 
         Args:
-            adjacency: np.ndarray
-            partitions: List[List]
+            adjacency: np.ndarray[DTYPE_ADJ_t, ndim=2]
+            partitions: List[np.ndarray[DTYPE_IDX_t, ndim=1]
             r: int
             s: int
             eps: double

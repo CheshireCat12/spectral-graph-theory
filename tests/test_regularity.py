@@ -12,6 +12,7 @@ from rgr.collection.standard import stochastic_block_model
 from rgr.constants.types import get_dtype_idx
 
 from tests.test_code_external.graph_reducer.classes_pair import ClassesPair
+from tests.test_code_external.graph_reducer.conditions import alon1, alon2, alon3
 
 
 @dataclass
@@ -112,10 +113,9 @@ def test_pairs(n_nodes, n_blocks, n_partitions):
             assert np.array_equal(pair.bip_avg_deg, pair_expected.bip_avg_deg)
             assert np.array_equal(pair.bip_density, pair_expected.bip_density)
 
-
 @pytest.mark.parametrize('n_nodes, n_blocks, n_partitions',
                          [
-                             (15, 3, 5),
+                             (50, 3, 5),
                              # (18, 3, 5),
                              # (15, 3, 6),
                              # (30, 5, 5),
@@ -128,6 +128,7 @@ def test_conditions(n_nodes, n_blocks, n_partitions):
     partitions = random_partition_init(n_nodes, n_partitions)
 
     reg = _init_szemeredi(n_nodes, n_partitions)
+    reg.adj_mat = graph.adjacency
     _create_mock_partition(reg, partitions)
 
     for r in range(2, n_partitions + 1):
@@ -136,7 +137,18 @@ def test_conditions(n_nodes, n_blocks, n_partitions):
             pair_expected = ClassesPair(graph.adjacency, reg.classes, r, s, epsilon=0.285)
 
             reg_cond = RegularityConditions(pair)
+            print(alon1(reg, pair_expected))
+            print(reg_cond.condition_1())
+            print('---')
+
+            print(alon2(reg, pair_expected))
+            print(reg_cond.condition_2())
+
+            print('###')
             #
+            print(alon3(reg, pair_expected))
+            # print(reg_cond.condition_3())
+            print("***")
             # print(reg_cond.conditions())
     #         is_cond_verified, certificates, complements = reg_cond.conditions()
     #         if is_cond_verified:

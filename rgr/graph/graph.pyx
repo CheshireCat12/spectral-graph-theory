@@ -1,5 +1,6 @@
 import numpy as np
 
+np.import_array()
 
 cdef class Graph:
     """
@@ -12,17 +13,19 @@ cdef class Graph:
 
     """
 
-    def __init__(self, np.ndarray adjacency):
+    def __init__(self, np.ndarray[DTYPE_ADJ_t, ndim=2] adjacency):
         self.adjacency = adjacency
 
     @property
-    def n_nodes(self):
-        return self.adjacency.shape[0]
+    def adjacency(self):
+        """np.ndarray[DTYPE_ADJ_t, ndim=2]: Adjacency matrix"""
+        return np.array(self._adjacency)
 
     @property
-    def adjacency(self):
-        return self.__adjacency
+    def n_nodes(self):
+        """int: Number of nodes"""
+        return self.adjacency.shape[0]
 
     @adjacency.setter
-    def adjacency(self, value):
-        self.__adjacency = value
+    def adjacency(self, np.ndarray[DTYPE_ADJ_t, ndim=2] adjacency):
+        self._adjacency = adjacency
