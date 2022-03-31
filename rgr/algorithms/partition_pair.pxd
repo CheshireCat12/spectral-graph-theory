@@ -2,7 +2,7 @@ cimport numpy as np
 
 cdef class PartitionPair:
     cdef:
-        public:
+        readonly:
             int prts_size
             int r, s
             int bip_sum_edges

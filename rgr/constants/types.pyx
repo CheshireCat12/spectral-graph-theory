@@ -7,3 +7,6 @@ DTYPE_FLOAT = np.float32
 
 cpdef type get_dtype_adj():
     return DTYPE_ADJ
+
+cpdef type get_dtype_idx():
+    return DTYPE_IDX

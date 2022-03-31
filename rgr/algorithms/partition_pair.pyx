@@ -1,15 +1,17 @@
 import numpy as np
 
 cdef class PartitionPair:
+    """Data class used to handle information between a pair of partitions."""
 
     def __init__(self, np.ndarray adjacency, list partitions, int r, int s, double eps):
         """
 
         Args:
-            adjacency:
-            r:
-            s:
-            eps:
+            adjacency: np.ndarray
+            partitions: List[List]
+            r: int
+            s: int
+            eps: double
         """
 
         self.adjacency = adjacency
@@ -38,8 +40,3 @@ cdef class PartitionPair:
 
         self.s_degrees = np.sum(self.bip_adj, axis=1)
         self.r_degrees = np.sum(self.bip_adj, axis=0)
-
-
-# np.sum(np.sum(bip_adj, axis=0) + np.sum(bip_adj, axis=1)) / (2 * cls_cardinality)
-# # Bipartite edge density
-# bip_edge_density = bip_sum_edges / (cls_cardinality**2)

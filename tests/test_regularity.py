@@ -1,11 +1,26 @@
-from rgr.algorithms.regularity import random_partition_init
-import pytest
-import numpy as np
-from rgr.collection.standard import stochastic_block_model
-from rgr.algorithms.partition_pair import PartitionPair
-from rgr.algorithms.conditions.regularity_conditions import RegularityConditions
-from collections import Counter
 from collections import defaultdict
+from dataclasses import dataclass
+from typing import List
+
+import numpy as np
+import pytest
+
+from rgr.algorithms.conditions.regularity_conditions import RegularityConditions
+from rgr.algorithms.partition_pair import PartitionPair
+from rgr.algorithms.regularity import random_partition_init
+from rgr.collection.standard import stochastic_block_model
+from rgr.constants.types import get_dtype_idx
+
+from tests.test_code_external.graph_reducer.classes_pair import ClassesPair
+
+
+@dataclass
+class MockSzemeredi:
+    N: int
+    k: int
+    epsilon: float
+    classes: np.ndarray
+    classes_cardinality: int
 
 
 @pytest.mark.parametrize('n_nodes, n_partitions, expected',
@@ -14,9 +29,9 @@ from collections import defaultdict
                               [np.array([], dtype=np.uint32),
                                np.array([2, 10, 13, 24, 26, 28], dtype=np.uint32),
                                np.array([5, 11, 16, 17, 22, 27], dtype=np.uint32),
-                               np.array([1,  8, 14, 20, 23, 29], dtype=np.uint32),
-                               np.array([4,  6,  7,  9, 18, 19], dtype=np.uint32),
-                               np.array([0,  3, 12, 15, 21, 25], dtype=np.uint32)]
+                               np.array([1, 8, 14, 20, 23, 29], dtype=np.uint32),
+                               np.array([4, 6, 7, 9, 18, 19], dtype=np.uint32),
+                               np.array([0, 3, 12, 15, 21, 25], dtype=np.uint32)]
                               ),
                              (33, 5,
                               [np.array([11, 20, 24], dtype=np.uint32),
@@ -53,29 +68,76 @@ def test_partition_init(n_nodes, n_partitions, expected):
         assert np.array_equal(partitions[part_idx], expected[part_idx])
 
 
-def test_pair():
-    n_nodes = 30
-    n_partitions = 5
+def _init_szemeredi(n_nodes: int, n_partitions: int) -> MockSzemeredi:
+    reg = MockSzemeredi(n_nodes,
+                        n_partitions,
+                        0.285,
+                        np.empty((n_nodes,), dtype=get_dtype_idx()),
+                        0)
+
+    return reg
+
+
+def _create_mock_partition(reg: MockSzemeredi, partitions: List[np.ndarray]) -> None:
+    for c, indices in enumerate(partitions):
+        reg.classes[indices] = c
+
+
+@pytest.mark.parametrize('n_nodes, n_blocks, n_partitions',
+                         [
+                             (15, 3, 5),
+                             (18, 3, 5),
+                             (15, 3, 6),
+                             (30, 5, 5),
+                             (130, 5, 5),
+                             (130, 7, 9),
+                         ])
+def test_pairs(n_nodes, n_blocks, n_partitions):
 
     np.random.seed(0)
-    graph = stochastic_block_model(n_nodes, 3, 0, 0)
+    graph = stochastic_block_model(n_nodes, n_blocks, 0, 0)
     partitions = random_partition_init(n_nodes, n_partitions)
-    certificates_complements = defaultdict(list)
-    regular_partitions = defaultdict(list)
-    n_irregular_pairs = 0
-    sze_idx = 0
+
+    reg = _init_szemeredi(n_nodes, n_partitions)
+    _create_mock_partition(reg, partitions)
+
     for r in range(2, n_partitions + 1):
         for s in range(1, r):
-            print()
-            print(f'r: {r}, s: {s}')
             pair = PartitionPair(graph.adjacency, partitions, r, s, eps=0.285)
-            print(pair.bip_adj)
-            print(f'r indices', pair.r_indices)
-            print(f's indices', pair.s_indices)
-            print(f'bip avg def {pair.bip_avg_deg}')
+            pair_expected = ClassesPair(graph.adjacency, reg.classes, r, s, epsilon=0.285)
+
+            assert np.array_equal(pair.bip_adj, pair_expected.bip_adj_mat)
+            assert np.array_equal(pair.r_indices, pair_expected.r_indices)
+            assert np.array_equal(pair.s_indices, pair_expected.s_indices)
+            assert np.array_equal(pair.bip_avg_deg, pair_expected.bip_avg_deg)
+            assert np.array_equal(pair.bip_density, pair_expected.bip_density)
+
+
+@pytest.mark.parametrize('n_nodes, n_blocks, n_partitions',
+                         [
+                             (15, 3, 5),
+                             # (18, 3, 5),
+                             # (15, 3, 6),
+                             # (30, 5, 5),
+                             # (130, 5, 5),
+                             # (130, 7, 9),
+                         ])
+def test_conditions(n_nodes, n_blocks, n_partitions):
+    np.random.seed(0)
+    graph = stochastic_block_model(n_nodes, n_blocks, 0, 0)
+    partitions = random_partition_init(n_nodes, n_partitions)
+
+    reg = _init_szemeredi(n_nodes, n_partitions)
+    _create_mock_partition(reg, partitions)
+
+    for r in range(2, n_partitions + 1):
+        for s in range(1, r):
+            pair = PartitionPair(graph.adjacency, partitions, r, s, eps=0.285)
+            pair_expected = ClassesPair(graph.adjacency, reg.classes, r, s, epsilon=0.285)
+
             reg_cond = RegularityConditions(pair)
-    #
-            print(reg_cond.conditions())
+            #
+            # print(reg_cond.conditions())
     #         is_cond_verified, certificates, complements = reg_cond.conditions()
     #         if is_cond_verified:
     #             certificates_complements[r - 2].append([certificates, complements])
