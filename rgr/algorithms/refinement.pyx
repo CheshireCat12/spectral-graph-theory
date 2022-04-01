@@ -1,12 +1,13 @@
 import numpy as np
-
+cimport numpy as np
 from rgr.algorithms.certificates_complements import CertificatesComplements
 
+np.import_array()
 
 cdef class Refinement:
 
     def __init__(self,
-                 np.ndarray adjacency,
+                 np.ndarray[DTYPE_ADJ_t, ndim=2] adjacency,
                  list partitions,
                  list certificates_complements,
                  double epsilon,
@@ -24,17 +25,18 @@ cdef class Refinement:
         self.partitions = partitions
         self.certificates_complements = certificates_complements
         self.epsilon = epsilon
+        self.threshold = threshold
 
-        self.n_nodes = 0 # adjacency.shape
+        # TODO: solve the use of np.shape
+        self.n_nodes = np.array(adjacency).shape[0]
         self.n_partitions = len(partitions)
         self.partition_size = len(partitions[-1])
 
         self.pair_densities = self._pairwise_densities()
 
-        self.threshold = 0.5
-
         self.partition_idx = 0
         self.new_partitions = {0: []}
+        self._refinement_degree_based()
 
     cpdef double _density(self,
                           np.ndarray adjacency,
@@ -60,6 +62,10 @@ cdef class Refinement:
             int n_edges
         n_nodes_a = indices_a.size
         n_nodes_b = indices_b.size
+
+        if n_nodes_a == n_nodes_b == 0:
+            return 0.
+
         max_num_edges = n_nodes_a * n_nodes_b
         n_edges = np.sum(adjacency[np.ix_(indices_a, indices_b)])
 
@@ -80,12 +86,12 @@ cdef class Refinement:
         """
         cdef np.ndarray densities
 
-        densities = np.array([self.density(self.adjacency, partition, partition)
+        densities = np.array([self._density(self.adjacency, partition, partition)
                               for partition in self.partitions])
 
         return densities
 
-    cpdef _refinement_degree_based(self):
+    cpdef bint _refinement_degree_based(self):
         """
         
         Returns:
@@ -102,7 +108,7 @@ cdef class Refinement:
         while to_be_refined:
             s = to_be_refined.pop(0)
             irregular_r_indices = [r for r in to_be_refined
-                                   if self.certificates_complements[r - 2][s - 1].r_certs]
+                                   if self.certificates_complements[r - 2][s - 1].is_r_certificate_defined()]
 
             # If class s has irregular classes
             if irregular_r_indices:
@@ -152,7 +158,7 @@ cdef class Refinement:
 
         return True
 
-    cpdef _choose_candidate(self, int s, list irregulars):
+    cpdef int _choose_candidate(self, int s, list irregulars):
         """
         
         Args:
@@ -219,7 +225,7 @@ cdef class Refinement:
 
         return set1, set2, compls
 
-    def _fill_new_set(self, new_set, compls, maximize_density):
+    cpdef tuple _fill_new_set(self, new_set, compls, maximize_density):
         """ Find nodes that can be added
         Move from compls the nodes in can_be_added until we either finish the nodes or reach the desired cardinality
         :param new_set: np.array(), array of indices of the set that must be augmented
@@ -252,11 +258,11 @@ cdef class Refinement:
 
         return new_set, compls
 
-    cpdef _update_partitions(self, np.ndarray part1, np.ndarray part2):
+    cpdef void _update_partitions(self, np.ndarray part1, np.ndarray part2):
         self._update_partition(part1)
         self._update_partition(part2)
 
-    cpdef _update_partition(self, np.ndarray partition):
+    cpdef void _update_partition(self, np.ndarray partition):
         self.partition_idx -= 1
         self.new_partitions[self.partition_idx] = partition
 

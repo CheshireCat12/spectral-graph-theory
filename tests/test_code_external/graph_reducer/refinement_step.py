@@ -144,7 +144,6 @@ def indeg_guided(self):
     in_densities = compute_indensities(self)
     new_k = 0
 
-    breakpoint()
 
     while to_be_refined:
         s = to_be_refined.pop(0)

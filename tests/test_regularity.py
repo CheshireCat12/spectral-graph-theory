@@ -6,12 +6,14 @@ import pytest
 
 from rgr.algorithms.conditions.regularity_conditions import RegularityConditions
 from rgr.algorithms.partition_pair import PartitionPair
-from rgr.algorithms.regularity import random_partition_init, check_regularity_pairs
+from rgr.algorithms.refinement import Refinement
+from rgr.algorithms.regularity import random_partition_init, check_regularity_pairs, is_partitioning_regular
 from rgr.collection.standard import stochastic_block_model
 from rgr.constants.types import get_dtype_idx
 from tests.test_code_external.graph_reducer.classes_pair import ClassesPair
 from tests.test_code_external.graph_reducer.conditions import alon1, alon2, alon3
 from tests.test_code_external.graph_reducer.szemeredi_regularity_lemma import SzemerediRegularityLemma
+from tests.test_code_external.graph_reducer.refinement_step import indeg_guided
 
 
 @dataclass
@@ -182,22 +184,66 @@ def test_pairs_regularity(n_nodes, n_blocks, n_partitions):
     reg.conditions = [alon1, alon2, alon3]
 
     n_irr_expected = SzemerediRegularityLemma.check_pairs_regularity(reg)
+    is_regular_expected = SzemerediRegularityLemma.check_partition_regularity(reg, n_irr_expected)
 
     tmp = check_regularity_pairs(graph.adjacency,
                                  partitions,
                                  epsilon=reg.epsilon)
     n_irregular_pairs, certificates_complements, regular_partitions = tmp
 
-    assert n_irr_expected == n_irregular_pairs
+    is_regular = is_partitioning_regular(n_irregular_pairs, n_partitions, reg.epsilon)
 
-    for r in range(2, n_partitions+1):
-        for s in range(1, r):
-            expected_cert_r, expected_cert_s = reg.certs_compls_list[r-2][s-1][0]
-            expected_compl_r, expected_compl_s = reg.certs_compls_list[r-2][s-1][1]
-            certs_compls = certificates_complements[r-2][s-1]
+    assert is_regular_expected == is_regular
 
-            assert np.array_equal(expected_cert_r, certs_compls.r_certs)
-            assert np.array_equal(expected_cert_s, certs_compls.s_certs)
-            assert np.array_equal(expected_compl_r, certs_compls.r_compls)
-            assert np.array_equal(expected_compl_s, certs_compls.s_compls)
-            assert np.array_equal(expected_compl_s, certs_compls.s_compls)
+
+@pytest.mark.parametrize('n_nodes, n_blocks, n_partitions',
+                         [
+                             (30, 3, 5),
+                             # (18, 3, 5),
+                             # (15, 3, 6),
+                             # (30, 5, 5),
+                             # (71, 7, 7),
+                             # (130, 5, 5),
+                             # (130, 7, 9),
+                         ])
+def test_refinement(n_nodes, n_blocks, n_partitions):
+    np.random.seed(0)
+    graph = stochastic_block_model(n_nodes, n_blocks, 0, 0)
+    partitions = random_partition_init(n_nodes, n_partitions)
+
+    reg = _init_szemeredi(n_nodes, n_partitions)
+    reg.adj_mat = graph.adjacency
+    _create_mock_partition(reg, partitions)
+    reg.classes = reg.classes.astype(np.int64)
+    print(reg.classes.dtype)
+
+    reg.certs_compls_list = []
+    reg.regularity_list = []
+    reg.is_weighted = False
+    reg.conditions = [alon1, alon2, alon3]
+
+    n_irr_expected = SzemerediRegularityLemma.check_pairs_regularity(reg)
+    print(reg.classes)
+    res = indeg_guided(reg)
+    print(reg.classes)
+
+    for c in range(reg.k):
+        print(np.where(reg.classes == c)[0])
+    print(reg.k)
+
+    #
+    tmp = check_regularity_pairs(graph.adjacency,
+                                 partitions,
+                                 epsilon=reg.epsilon)
+    n_irregular_pairs, certificates_complements, regular_partitions = tmp
+    print('below-------')
+    ref = Refinement(graph.adjacency,
+                     partitions,
+                     certificates_complements,
+                     reg.epsilon)
+
+    print(ref.new_partitions)
+    #
+    # is_regular = is_partitioning_regular(n_irregular_pairs, n_partitions, reg.epsilon)
+    #
+    # assert is_regular_expected == is_regular
