@@ -7,3 +7,5 @@ cdef class CertificatesComplements:
     cdef:
         list certificates
         list complements
+
+    cpdef bint is_r_certificate_defined(self)

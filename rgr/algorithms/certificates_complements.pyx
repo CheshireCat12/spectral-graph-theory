@@ -7,9 +7,9 @@ cdef class CertificatesComplements:
         """
 
         Args:
-            certificates: list
+            certificates: List[np.ndarray[DTYPE_IDX_t, ndim=1]]
                 List containing the certificates for idx r and s (e.g., [r_certs, s_certs])
-            complements: list
+            complements: List[np.ndarray[DTYPE_IDX_t, ndim=1]]
                 List containing the complements of the certificates
                 for idx r and s (e.g., [r_compls, s_compls])
         """
@@ -38,5 +38,8 @@ cdef class CertificatesComplements:
         return self.complements[1]
 
     def __repr__(self):
-        return f'Certificates {self.certificates}\n' \
+        return f'Certificates {self.certificates}' \
                f'Complements {self.complements}'
+
+    cpdef bint is_r_certificate_defined(self):
+        return self.r_certs.size > 0

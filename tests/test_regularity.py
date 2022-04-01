@@ -1,4 +1,3 @@
-from collections import defaultdict
 from dataclasses import dataclass
 from typing import List
 
@@ -7,12 +6,12 @@ import pytest
 
 from rgr.algorithms.conditions.regularity_conditions import RegularityConditions
 from rgr.algorithms.partition_pair import PartitionPair
-from rgr.algorithms.regularity import random_partition_init
+from rgr.algorithms.regularity import random_partition_init, check_regularity_pairs
 from rgr.collection.standard import stochastic_block_model
 from rgr.constants.types import get_dtype_idx
-
 from tests.test_code_external.graph_reducer.classes_pair import ClassesPair
 from tests.test_code_external.graph_reducer.conditions import alon1, alon2, alon3
+from tests.test_code_external.graph_reducer.szemeredi_regularity_lemma import SzemerediRegularityLemma
 
 
 @dataclass
@@ -83,6 +82,8 @@ def _create_mock_partition(reg: MockSzemeredi, partitions: List[np.ndarray]) -> 
     for c, indices in enumerate(partitions):
         reg.classes[indices] = c
 
+    reg.classes_cardinality = partitions[1].size
+
 
 @pytest.mark.parametrize('n_nodes, n_blocks, n_partitions',
                          [
@@ -94,7 +95,6 @@ def _create_mock_partition(reg: MockSzemeredi, partitions: List[np.ndarray]) -> 
                              (130, 7, 9),
                          ])
 def test_pairs(n_nodes, n_blocks, n_partitions):
-
     np.random.seed(0)
     graph = stochastic_block_model(n_nodes, n_blocks, 0, 0)
     partitions = random_partition_init(n_nodes, n_partitions)
@@ -110,17 +110,20 @@ def test_pairs(n_nodes, n_blocks, n_partitions):
             assert np.array_equal(pair.bip_adj, pair_expected.bip_adj_mat)
             assert np.array_equal(pair.r_indices, pair_expected.r_indices)
             assert np.array_equal(pair.s_indices, pair_expected.s_indices)
-            assert np.array_equal(pair.bip_avg_deg, pair_expected.bip_avg_deg)
-            assert np.array_equal(pair.bip_density, pair_expected.bip_density)
+            assert pair.bip_avg_deg == pair_expected.bip_avg_deg
+            assert pair.bip_density == pair_expected.bip_density
+            assert pair.prts_size == pair_expected.classes_n
+
 
 @pytest.mark.parametrize('n_nodes, n_blocks, n_partitions',
                          [
-                             (50, 3, 5),
-                             # (18, 3, 5),
-                             # (15, 3, 6),
-                             # (30, 5, 5),
-                             # (130, 5, 5),
-                             # (130, 7, 9),
+                             (30, 3, 5),
+                             (18, 3, 5),
+                             (15, 3, 6),
+                             (30, 5, 5),
+                             (71, 7, 7),
+                             (130, 5, 5),
+                             (130, 7, 9),
                          ])
 def test_conditions(n_nodes, n_blocks, n_partitions):
     np.random.seed(0)
@@ -137,33 +140,64 @@ def test_conditions(n_nodes, n_blocks, n_partitions):
             pair_expected = ClassesPair(graph.adjacency, reg.classes, r, s, epsilon=0.285)
 
             reg_cond = RegularityConditions(pair)
-            print(alon1(reg, pair_expected))
-            print(reg_cond.condition_1())
-            print('---')
 
-            print(alon2(reg, pair_expected))
-            print(reg_cond.condition_2())
+            expected_conditions = [alon1, alon2, alon3]
+            conditions = [reg_cond.condition_1, reg_cond.condition_2, reg_cond.condition_3]
 
-            print('###')
-            #
-            print(alon3(reg, pair_expected))
-            # print(reg_cond.condition_3())
-            print("***")
-            # print(reg_cond.conditions())
-    #         is_cond_verified, certificates, complements = reg_cond.conditions()
-    #         if is_cond_verified:
-    #             certificates_complements[r - 2].append([certificates, complements])
-    #
-    #             if certificates[0]:
-    #                 n_irregular_pairs += 1
-    #             else:
-    #                 regular_partitions[r - 2].append(s)
-    #
-    #         else:
-    #             certificates_complements[r - 2].append([[[], []], [[], []]])
-    #
-    #         sze_idx += pair.bip_density ** 2
-    #
-    # sze_idx *= (1.0 / n_partitions ** 2)
-    # # break
-    # # break
+            for expected_condition, condition in zip(expected_conditions, conditions):
+                expected_verified, expected_certs, expected_compls = expected_condition(reg, pair_expected)
+                expected_cert_r, expected_cert_s = expected_certs
+                expected_compl_r, expected_compl_s = expected_compls
+                verified, certs_compls = condition()
+
+                assert expected_verified == verified
+                assert np.array_equal(expected_cert_r, certs_compls.r_certs)
+                assert np.array_equal(expected_cert_s, certs_compls.s_certs)
+                assert np.array_equal(expected_compl_r, certs_compls.r_compls)
+                assert np.array_equal(expected_compl_s, certs_compls.s_compls)
+
+
+@pytest.mark.parametrize('n_nodes, n_blocks, n_partitions',
+                         [
+                             (30, 3, 5),
+                             (18, 3, 5),
+                             (15, 3, 6),
+                             (30, 5, 5),
+                             (71, 7, 7),
+                             (130, 5, 5),
+                             (130, 7, 9),
+                         ])
+def test_pairs_regularity(n_nodes, n_blocks, n_partitions):
+    np.random.seed(0)
+    graph = stochastic_block_model(n_nodes, n_blocks, 0, 0)
+    partitions = random_partition_init(n_nodes, n_partitions)
+
+    reg = _init_szemeredi(n_nodes, n_partitions)
+    reg.adj_mat = graph.adjacency
+    _create_mock_partition(reg, partitions)
+
+    reg.certs_compls_list = []
+    reg.regularity_list = []
+    reg.is_weighted = False
+    reg.conditions = [alon1, alon2, alon3]
+
+    n_irr_expected = SzemerediRegularityLemma.check_pairs_regularity(reg)
+
+    tmp = check_regularity_pairs(graph.adjacency,
+                                 partitions,
+                                 epsilon=reg.epsilon)
+    n_irregular_pairs, certificates_complements, regular_partitions = tmp
+
+    assert n_irr_expected == n_irregular_pairs
+
+    for r in range(2, n_partitions+1):
+        for s in range(1, r):
+            expected_cert_r, expected_cert_s = reg.certs_compls_list[r-2][s-1][0]
+            expected_compl_r, expected_compl_s = reg.certs_compls_list[r-2][s-1][1]
+            certs_compls = certificates_complements[r-2][s-1]
+
+            assert np.array_equal(expected_cert_r, certs_compls.r_certs)
+            assert np.array_equal(expected_cert_s, certs_compls.s_certs)
+            assert np.array_equal(expected_compl_r, certs_compls.r_compls)
+            assert np.array_equal(expected_compl_s, certs_compls.s_compls)
+            assert np.array_equal(expected_compl_s, certs_compls.s_compls)

@@ -1,8 +1,8 @@
 import random
 import numpy as np
 
-from classes_pair import ClassesPair
-from classes_pair import WeightedClassesPair
+from tests.test_code_external.graph_reducer.classes_pair import ClassesPair
+from tests.test_code_external.graph_reducer.classes_pair import WeightedClassesPair
 #import ipdb
 
 

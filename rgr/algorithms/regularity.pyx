@@ -80,7 +80,7 @@ cpdef tuple check_regularity_pairs(np.ndarray adjacency,
 
             certificates_complements[r - 2].append(certs_compls)
 
-            if is_cond_verified and certs_compls.r_certs:
+            if is_cond_verified and certs_compls.is_r_certificate_defined():
                 n_irregular_pairs += 1
             elif is_cond_verified:
                 regular_partitions[r - 2].append(s)

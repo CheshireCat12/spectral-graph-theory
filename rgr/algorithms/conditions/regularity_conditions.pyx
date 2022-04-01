@@ -101,7 +101,8 @@ cdef class RegularityConditions:
             np.ndarray s_certs, r_certs
             np.ndarray s_complements, r_complements
             np.ndarray ngh_dev
-            np.ndarray yp_filter, y0
+            np.ndarray yp_filter
+            DTYPE_IDX_t y0
 
         is_irregular = False
         certificates, complements = None, None
@@ -125,7 +126,7 @@ cdef class RegularityConditions:
                                  self.pair.prts_size,
                                  self.pair.eps)
 
-        if s_certs.size > 0:
+        if s_certs is not None:
             assert np.array_equal(np.intersect1d(s_certs, self.pair.s_indices),
                                   s_certs) == True, "cert_is not subset of s_indices"
             assert y0 in self.pair.s_indices, "y0 not in s_indices"
@@ -163,14 +164,14 @@ cpdef np.ndarray neighbourhood_deviation(np.ndarray[DTYPE_ADJ_t, ndim=2] bip_adj
     cdef:
         np.ndarray[DTYPE_FLOAT_t, ndim=2] mat
 
-    mat = np.matmul(bip_adj.T, bip_adj)
+    mat = np.matmul(bip_adj.T, bip_adj).astype(DTYPE_FLOAT)
     mat = mat - (bip_avg_deg ** 2) / cls_cardinality
 
     return mat
 
-cpdef np.ndarray find_Yp(np.ndarray[DTYPE_STD_t, ndim=1] s_degrees,
-              double bip_avg_deg,
-              double threshold_dev):
+cpdef np.ndarray find_Yp(np.ndarray[DTYPE_UINT_t, ndim=1] s_degrees,
+                         double bip_avg_deg,
+                         double threshold_dev):
     """
     
     Args:
@@ -188,10 +189,10 @@ cpdef np.ndarray find_Yp(np.ndarray[DTYPE_STD_t, ndim=1] s_degrees,
     return yp_i
 
 cpdef tuple compute_y0(np.ndarray[DTYPE_FLOAT_t, ndim=2] ngh_dev,
-                 np.ndarray[DTYPE_IDX_t, ndim=1] s_indices,
-                 yp_i,
-                 cls_cardinality,
-                 double eps):
+                       np.ndarray[DTYPE_IDX_t, ndim=1] s_indices,
+                       yp_i,
+                       cls_cardinality,
+                       double eps):
     threshold_dev = 2 * eps ** 4 * cls_cardinality
     rect_mat = ngh_dev[yp_i]
 
@@ -208,4 +209,3 @@ cpdef tuple compute_y0(np.ndarray[DTYPE_FLOAT_t, ndim=2] ngh_dev,
         return cert_s, y0
     else:
         return None, y0
-

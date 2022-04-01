@@ -43,5 +43,5 @@ cdef class PartitionPair:
 
         self.bip_density = self.bip_sum_edges / (self.prts_size**2)
 
-        self.s_degrees = np.sum(self.bip_adj, axis=1)
-        self.r_degrees = np.sum(self.bip_adj, axis=0)
+        self.s_degrees = np.sum(self.bip_adj, axis=1).astype(DTYPE_UINT)
+        self.r_degrees = np.sum(self.bip_adj, axis=0).astype(DTYPE_UINT)
