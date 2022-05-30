@@ -46,11 +46,15 @@ cpdef tuple check_regularity_pairs(np.ndarray adjacency,
                                    list partitions,
                                    double epsilon):
     """
+    Check if the pairwise partitions are eps-regular.
     
     Args:
-        adjacency: 
-        partitions: 
-        epsilon: 
+        adjacency: np.ndarray
+            Adjacency matrix of the graph
+        partitions: List
+            List of the partitions
+        epsilon: float
+            Epsilon parameter
 
     Returns:
 

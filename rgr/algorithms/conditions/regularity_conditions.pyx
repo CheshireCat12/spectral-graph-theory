@@ -18,6 +18,12 @@ cdef class RegularityConditions:
     @cython.boundscheck(False)
     @cython.wraparound(False)
     cpdef tuple conditions(self):
+        """
+        Iterates over the alon's regularity conditions.
+        
+        Returns:
+
+        """
         cdef:
             bint is_condition_verified
             list conditions_to_verify
@@ -57,7 +63,7 @@ cdef class RegularityConditions:
 
         """
         cdef:
-            bint is_irregular
+            bint is_cond_verified
             double threshold_n_nodes
             list certificates, complements
             np.ndarray deviated_nodes_mask, b_mask
@@ -66,13 +72,13 @@ cdef class RegularityConditions:
 
         threshold_n_nodes = (1 / 8) * self.threshold_dev
 
-        is_irregular = False
+        is_cond_verified = False
         certificates, complements = None, None
 
         deviated_nodes_mask = np.abs(self.pair.s_degrees - self.pair.bip_avg_deg) >= self.threshold_dev
 
         if np.sum(deviated_nodes_mask) > threshold_n_nodes:
-            is_irregular = True
+            is_cond_verified = True
 
             s_certs = self.pair.s_indices[deviated_nodes_mask]
             s_complements = np.setdiff1d(self.pair.s_indices, s_certs)
@@ -86,7 +92,7 @@ cdef class RegularityConditions:
             certificates = [r_certs, s_certs]
             complements = [r_complements, s_complements]
 
-        return is_irregular, CertificatesComplements(certificates, complements)
+        return is_cond_verified, CertificatesComplements(certificates, complements)
 
     cpdef tuple condition_3(self):
         """
@@ -150,13 +156,13 @@ cdef class RegularityConditions:
 
 cpdef np.ndarray neighbourhood_deviation(np.ndarray[DTYPE_ADJ_t, ndim=2] bip_adj,
                                          double bip_avg_deg,
-                                         int cls_cardinality):
+                                         int prts_cardinality):
     """
 
     Args:
         bip_adj: np.ndarray[DTYPE_ADJ_t, ndim=2]
         bip_avg_deg: double
-        cls_cardinality: int
+        prts_cardinality: int
 
     Returns:
         np.ndarray[DTYPE_FLOAT_t, ndim=2]
@@ -165,7 +171,7 @@ cpdef np.ndarray neighbourhood_deviation(np.ndarray[DTYPE_ADJ_t, ndim=2] bip_adj
         np.ndarray[DTYPE_FLOAT_t, ndim=2] mat
 
     mat = np.matmul(bip_adj.T, bip_adj).astype(DTYPE_FLOAT)
-    mat = mat - (bip_avg_deg ** 2) / cls_cardinality
+    mat = mat - (bip_avg_deg ** 2) / prts_cardinality
 
     return mat
 
@@ -191,12 +197,22 @@ cpdef np.ndarray find_Yp(np.ndarray[DTYPE_UINT_t, ndim=1] s_degrees,
 cpdef tuple compute_y0(np.ndarray[DTYPE_FLOAT_t, ndim=2] ngh_dev,
                        np.ndarray[DTYPE_IDX_t, ndim=1] s_indices,
                        yp_i,
-                       cls_cardinality,
-                       double eps):
-    threshold_dev = 2 * eps ** 4 * cls_cardinality
+                       double threshold_dev):
+    """
+    
+    Args:
+        ngh_dev: 
+        s_indices: 
+        yp_i: 
+        threshold_dev: 
+
+    Returns:
+
+    """
+    # threshold_dev = 2 * eps ** 4 * cls_cardinality
     rect_mat = ngh_dev[yp_i]
 
-    boolean_mat = rect_mat > threshold_dev
+    boolean_mat = rect_mat > 2 * threshold_dev
     cardinality_by0s = np.sum(boolean_mat, axis=1)
 
     y0_idx = np.argmax(cardinality_by0s)
@@ -204,7 +220,7 @@ cpdef tuple compute_y0(np.ndarray[DTYPE_FLOAT_t, ndim=2] ngh_dev,
 
     y0 = s_indices[aux]
 
-    if cardinality_by0s[y0_idx] > (eps ** 4 * cls_cardinality / 4.0):
+    if cardinality_by0s[y0_idx] > (threshold_dev / 4.0):
         cert_s = s_indices[boolean_mat[y0_idx]]
         return cert_s, y0
     else:
