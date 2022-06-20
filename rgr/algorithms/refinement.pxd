@@ -6,19 +6,23 @@ from rgr.constants.types cimport DTYPE_ADJ_t, DTYPE_IDX
 
 cdef class Refinement:
     cdef:
-        int n_nodes, n_partitions, partition_size
-        int partition_idx
+        bint verbose
+        readonly bint is_refined
+        int n_nodes, partition_idx, partition_size
+        readonly int n_partitions
         double epsilon, threshold
         list partitions, certificates_complements
-        readonly dict new_partitions
-        np.ndarray pair_densities
+        readonly list new_partitions
+        readonly dict new_dict_partitions
         np.ndarray adjacency
+        readonly np.ndarray pair_densities
 
 
     cpdef double _density(self,
                           np.ndarray adjacency,
                           np.ndarray indices_a,
-                          np.ndarray indices_b)
+                          np.ndarray indices_b,
+                          bint same_index_set=*)
 
     cpdef np.ndarray _pairwise_densities(self)
 

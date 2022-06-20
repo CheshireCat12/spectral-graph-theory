@@ -1,7 +1,8 @@
-import szemeredi_regularity_lemma as srl
-import partition_initialization
-import conditions
-import refinement_step as rs
+# import szemeredi_regularity_lemma as srl
+import tests.test_code_external.graph_reducer.szemeredi_regularity_lemma as srl
+import tests.test_code_external.graph_reducer.partition_initialization as partition_initialization
+import tests.test_code_external.graph_reducer.conditions as conditions
+import tests.test_code_external.graph_reducer.refinement_step as rs
 
 
 def generate_szemeredi_reg_lemma_implementation(kind, sim_mat, epsilon, is_weighted, random_initialization,
@@ -33,8 +34,9 @@ def generate_szemeredi_reg_lemma_implementation(kind, sim_mat, epsilon, is_weigh
         alg.partition_initialization = partition_initialization.degree_based
 
     if kind == "alon":
+        # alg.conditions = [conditions.alon1, conditions.alon2, conditions.alon3]
         alg.conditions = [conditions.alon1, conditions.alon3, conditions.alon2]
-        #alg.conditions = [conditions.alon1, conditions.alon3]
+        # alg.conditions = [conditions.alon1, conditions.alon3]
     elif kind == "frieze_kannan":
         alg.conditions = [conditions.frieze_kannan]
     else:

@@ -79,6 +79,7 @@ class SzemerediRegularityLemma:
         num_of_irregular_pairs = 0
         self.sze_idx = 0.0
 
+        # print(f'n_partitions: {self.k + 1}')
         for r in range(2, self.k + 1):
             self.certs_compls_list.append([])
             self.regularity_list.append([])
@@ -92,12 +93,20 @@ class SzemerediRegularityLemma:
                 is_verified = False
                 for i, cond in enumerate(self.conditions):
                     is_verified, cert_pair, compl_pair = cond(self, cl_pair)
+
                     if is_verified:
                         self.certs_compls_list[r - 2].append([cert_pair, compl_pair])
 
+                        # if r == 2 and s == 1:
+                        # print(f'cond num: {i}')
+                        #     print(cert_pair[0])
+                        #     print(cert_pair, compl_pair)
+
                         if cert_pair[0]:
                             num_of_irregular_pairs += 1
+                            # print(f'{r}-{s}-increment n_irreg_pairs')
                         else:
+                            # print(f'{r}-{s}-regularity list')
                             self.regularity_list[r - 2].append(s)
 
                         break
@@ -107,8 +116,13 @@ class SzemerediRegularityLemma:
                     self.certs_compls_list[r - 2].append([[[], []], [[], []]])
 
                 self.sze_idx += cl_pair.bip_density ** 2.0
+                # print(f'bib dens - {cl_pair.bip_density}')
+                # print(self.sze_idx)
 
         self.sze_idx *= (1.0 / self.k ** 2.0)
+        # print(f'final - {self.sze_idx}')
+        # print(f'n_partitions - {self.k}')
+
         return num_of_irregular_pairs
 
     def check_partition_regularity(self, num_of_irregular_pairs):
@@ -117,9 +131,12 @@ class SzemerediRegularityLemma:
         :param num_of_irregular_pairs: the number of found irregular pairs in the previous step
         :return: True if the partition is irregular, False otherwise
         """
+        # print(f'n_partitions_threshold: {self.k}')
+        # print(f'num irreg parts {num_of_irregular_pairs}')
+        # print(f'threshold: {self.epsilon * ((self.k * (self.k - 1)) / 2.0)}')
         return num_of_irregular_pairs <= self.epsilon * ((self.k * (self.k - 1)) / 2.0)
 
-    def run(self, b=2, compression_rate=0.05, iteration_by_iteration=False, verbose=False):
+    def run(self, partitions, b=2, compression_rate=0.05, iteration_by_iteration=False, verbose=False):
         """
         run the Alon algorithm.
         :param b: the cardinality of the initial partition (C0 excluded)
@@ -143,7 +160,13 @@ class SzemerediRegularityLemma:
 
         iteration = 0
 
-        self.partition_initialization(self, b)
+        # np.random.seed(0)
+        # print(self.N)
+        # self.partition_initialization(self, b)
+        # print(self.classes)
+        self.k = b
+        self.classes = partitions.astype('int32')
+        self.classes_cardinality = self.N // self.k
 
         while True:
             self.certs_compls_list = []
@@ -151,7 +174,6 @@ class SzemerediRegularityLemma:
             iteration += 1
             num_of_irregular_pairs = self.check_pairs_regularity()
             #ipdb.set_trace()
-
             if self.check_partition_regularity(num_of_irregular_pairs):
                 if verbose:
                     print("{0}, {1}, {2}, {3}, regular".format(iteration, self.k, self.classes_cardinality, self.sze_idx))
@@ -166,7 +188,8 @@ class SzemerediRegularityLemma:
             if verbose:
                 print("{0}, {1}, {2}, {3} irregular".format(iteration, self.k, self.classes_cardinality, self.sze_idx) )
 
-            res = self.refinement_step(self)
+            refinement_verbose = self.k >= 16
+            res = self.refinement_step(self, verbose=refinement_verbose)
 
             if not res:
                 if verbose:
@@ -174,6 +197,7 @@ class SzemerediRegularityLemma:
                     print("{0}, {1}, {2}, {3}, irregular".format(iteration, self.k, self.classes_cardinality, self.sze_idx))
                 return (False, self.k, None, self.sze_idx, self.regularity_list, num_of_irregular_pairs)
 
+            # print('*****************************************')
         #self.generate_reduced_sim_mat()
         #return (True, self.k, self.reduced_sim_mat)
         #ipdb.set_trace()

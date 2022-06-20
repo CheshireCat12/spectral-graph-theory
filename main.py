@@ -65,7 +65,8 @@ def main():
     random = nx.gnp_random_graph(size, p)
 
     clusters = np.array([100] * 10)
-    graph = block_model(100*10, clusters, 0.1, 1, 0.1, 0)
+
+    graph = stochastic_block_model(100, 10, 0.1, 0.1, 0)
 
     nx_graph = graph_2_nx(graph)
 
@@ -74,7 +75,7 @@ def main():
     # graph_2_pyvis(nx_graph, 'test.html')
     graph_2_img(graph, 'test.png')
     np.random.seed(42)
-    graph_2_img(random_graph, 'test_nx.png')
+    # graph_2_img(random_graph, 'test_nx.png')
 
 
     # profiler()

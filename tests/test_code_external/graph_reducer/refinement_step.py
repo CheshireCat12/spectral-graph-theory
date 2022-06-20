@@ -1,7 +1,7 @@
 import numpy as np
 import random
 import sys
-#import ipdb
+# import ipdb
 import logging
 
 
@@ -15,11 +15,10 @@ def partition_correct(self):
     """ Checks if the partition cardinalities are valid
     :returns: True if the classes of the partition have the right cardinalities, false otherwise
     """
-    for i in range(1, self.k+1):
+    for i in range(1, self.k + 1):
         if not np.where(self.classes == i)[0].size == self.classes_cardinality:
             return False
     return True
-
 
 
 ##########################################################################
@@ -40,16 +39,16 @@ def density(self, indices_a, indices_b):
     # [TODO] performance issue: comparing all the indices? maybe add a parameter to the function
     if np.array_equal(indices_a, indices_b):
         n = indices_a.size
-        max_edges = (n*(n-1))/2
+        max_edges = (n * (n - 1)) / 2
         n_edges = np.tril(self.adj_mat[np.ix_(indices_a, indices_a)], -1).sum()
-        #n_edges = np.tril(self.sim_mat[np.ix_(indices_a, indices_a)], -1).sum()
+        # n_edges = np.tril(self.sim_mat[np.ix_(indices_a, indices_a)], -1).sum()
         return n_edges / max_edges
 
     n_a = indices_a.size
     n_b = indices_b.size
     max_edges = n_a * n_b
     n_edges = self.adj_mat[np.ix_(indices_a, indices_b)].sum()
-    #n_edges = self.sim_mat[np.ix_(indices_a, indices_b)].sum()
+    # n_edges = self.sim_mat[np.ix_(indices_a, indices_b)].sum()
     return n_edges / max_edges
 
 
@@ -101,14 +100,14 @@ def fill_new_set(self, new_set, compls, maximize_density):
 
     if maximize_density:
         nodes = self.adj_mat[np.ix_(new_set, compls)] == 1.0
-        #nodes = self.sim_mat[np.ix_(new_set, compls)] >= 0.5
+        # nodes = self.sim_mat[np.ix_(new_set, compls)] >= 0.5
 
         # These are the nodes that can be added to certs, we take the most connected ones with all the others
         to_add = np.unique(np.tile(compls, (len(new_set), 1))[nodes], return_counts=True)
         to_add = to_add[0][to_add[1].argsort()]
     else:
         nodes = self.adj_mat[np.ix_(new_set, compls)] == 0.0
-        #nodes = self.sim_mat[np.ix_(new_set, compls)] < 0.5
+        # nodes = self.sim_mat[np.ix_(new_set, compls)] < 0.5
 
         # These are the nodes that can be added to certs, we take the less connected ones with all the others
         to_add = np.unique(np.tile(compls, (len(new_set), 1))[nodes], return_counts=True)
@@ -131,11 +130,24 @@ def fill_new_set(self, new_set, compls, maximize_density):
     return new_set, compls
 
 
-def indeg_guided(self):
+from collections import defaultdict
+
+
+def reverse_partitions(classes):
+    tmp = defaultdict(list)  # [] for _ in range(len(partitions))]
+    for idx, cls in enumerate(classes):
+        tmp[cls].append(idx)
+    lst = [val[1] for val in sorted(tmp.items(), key=lambda x: x[0], reverse=False)]
+
+    print(lst, sep='\n')
+    # print(lst)
+
+
+def indeg_guided(self, verbose=False):
     """ In-degree based refinemet. The refinement exploits the internal structure of the classes of a given partition.
     :returns: True if the new partition is valid, False otherwise
     """
-    #ipdb.set_trace()
+    # ipdb.set_trace()
     threshold = 0.5
 
     to_be_refined = list(range(1, self.k + 1))
@@ -144,20 +156,21 @@ def indeg_guided(self):
     in_densities = compute_indensities(self)
     new_k = 0
 
-
     while to_be_refined:
+        # print(f'to be refined {to_be_refined}')
         s = to_be_refined.pop(0)
         irregular_r_indices = []
 
         for r in to_be_refined:
             if self.certs_compls_list[r - 2][s - 1][0][0]:
                 irregular_r_indices.append(r)
-
+        # print(f'irreg r idx: {irregular_r_indices}')
         # If class s has irregular classes
         if irregular_r_indices:
 
             # Choose candidate based on the inside-outside density index
             r = choose_candidate(self, in_densities, s, irregular_r_indices)
+            # print(r)
             to_be_refined.remove(r)
 
             s_certs = np.array(self.certs_compls_list[r - 2][s - 1][0][1]).astype('int32')
@@ -168,27 +181,37 @@ def indeg_guided(self):
             r_certs = np.array(self.certs_compls_list[r - 2][s - 1][0][0]).astype('int32')
             assert r_certs.size + r_compls.size == old_cardinality
 
-
             # Merging the two complements
             compls = np.append(s_compls, r_compls)
+            # print(f'certificat compls', compls)
 
             # Calculating certificates densities
             dens_s_cert = density(self, s_certs, s_certs)
             dens_r_cert = density(self, r_certs, r_certs)
 
+            # if verbose:
+            #     print(f'dense s cert: {dens_s_cert}')
+            #     print(f'dense r cert: {dens_r_cert}')
+
             for cert, dens in [(s_certs, dens_s_cert), (r_certs, dens_r_cert)]:
 
                 # Indices of the cert ordered by in-degree, it doesn't matter if we reverse the list as long as we unzip it
                 degs = self.adj_mat[np.ix_(cert, cert)].sum(1).argsort()[::-1]
-                #degs = self.sim_mat[np.ix_(cert, cert)].sum(1).argsort()[::-1]
-
+                # degs = self.sim_mat[np.ix_(cert, cert)].sum(1).argsort()[::-1]
+                # if verbose:
+                #     print('degs', degs)
                 if dens > threshold:
                     # Certificates high density branch
 
                     # Unzip them in half to preserve seeds
-                    set1=  cert[degs[0:][::2]]
-                    set2 =  cert[degs[1:][::2]]
+                    set1 = cert[degs[0:][::2]]
+                    set2 = cert[degs[1:][::2]]
 
+                    # if verbose:
+                    #     print(f'certificat compls', compls)
+                    #     print('before sets')
+                    #     print(set1)
+                    #     print(set2)
                     # Adjust cardinality of the new set to the desired cardinality
                     set1, compls = fill_new_set(self, set1, compls, True)
                     set2, compls = fill_new_set(self, set2, compls, True)
@@ -204,10 +227,25 @@ def indeg_guided(self):
                         self.classes[set2[-1]] = 0
 
                 else:
+                    # print('random sets')
                     # Certificates low density branch
-                    set1 = np.random.choice(cert, len(cert)//2, replace=False)
+                    # if verbose:
+                    #     print('random sets')
+                    #     print(f'cert {cert}, cert size {cert.size}')
+                    #     print(f'--- numpy random state {np.random.get_state()}')
+                    set1 = np.random.choice(cert, len(cert) // 2, replace=False)
+                    # if verbose:
+                    #     print(f'set1 : {set1}')
                     set2 = np.setdiff1d(cert, set1)
-
+                    # if verbose:
+                    #     print(f'set2 : {set2}')
+                    #
+                    # if verbose:
+                    #     print('random sets')
+                    #     print(f'certificat compls', compls)
+                    #     print('before sets')
+                    #     print(set1)
+                    #     print(set2)
                     # Adjust cardinality of the new set to the desired cardinality
                     set1, compls = fill_new_set(self, set1, compls, False)
                     set2, compls = fill_new_set(self, set2, compls, False)
@@ -221,21 +259,24 @@ def indeg_guided(self):
                     self.classes[set2] = new_k
                     if set2.size > self.classes_cardinality:
                         self.classes[set2[-1]] = 0
-
                 # Handle special case when there are still some complements not assigned
                 if compls.size > 0:
                     self.classes[compls] = 0
-
+                # if verbose:
+                #     print('after sets')
+                #     print(set1)
+                #     print(set2)
+                #     print('|||||||')
         else:
             # The class is e-reg with all the others or it does not have irregular classes
-
+            # print(f'e-reg')
             # Sort by indegree and unzip the structure
             s_indices = np.where(self.classes == s)[0]
             s_indegs = self.adj_mat[np.ix_(s_indices, s_indices)].sum(1).argsort()
-            #s_indegs = self.sim_mat[np.ix_(s_indices, s_indices)].sum(1).argsort()
+            # s_indegs = self.sim_mat[np.ix_(s_indices, s_indices)].sum(1).argsort()
 
-            set1=  s_indices[s_indegs[0:][::2]]
-            set2=  s_indices[s_indegs[1:][::2]]
+            set1 = s_indices[s_indegs[0:][::2]]
+            set2 = s_indices[s_indegs[1:][::2]]
 
             # Handling of odd classes
             new_k -= 1
@@ -246,20 +287,29 @@ def indeg_guided(self):
             self.classes[set2] = new_k
             if set1.size > self.classes_cardinality:
                 self.classes[set1[-1]] = 0
-
+            # print('partitions')
+            # print(self.classes)
+            # reverse_partitions(self.classes)
+            # if verbose:
+            #     print('after sets')
+            #     print(set1)
+            #     print(set2)
+            #     print('|||||||')
     self.k *= 2
 
     # Check validity of class C0, if invalid and enough nodes, distribute the exceeding nodes among the classes
     c0_indices = np.where(self.classes == 0)[0]
     if c0_indices.size >= (self.epsilon * self.adj_mat.shape[0]):
         if c0_indices.size > self.k:
-            self.classes[c0_indices[:self.k]] = np.array(range(1, self.k+1))*-1
+            self.classes[c0_indices[:self.k]] = np.array(range(1, self.k + 1)) * -1
         else:
             print('[ refinement ] Invalid cardinality of C_0')
             return False
 
     self.classes *= -1
-
+    # if verbose:
+    #     reverse_partitions(self.classes)
+    #     print(f'pair densities refinement {in_densities}')
     if not partition_correct(self):
         ipdb.set_trace()
     return True
@@ -282,7 +332,7 @@ def within_degrees(self, c):
     return c_degs
 
 
-def get_s_r_degrees(self,s,r):
+def get_s_r_degrees(self, s, r):
     """ Given two classes it returns a degree vector (indicator vector) where the degrees
     have been calculated with respecto to each other set.
     :param s: int, class s
@@ -303,13 +353,12 @@ def get_s_r_degrees(self,s,r):
     return s_r_degs
 
 
-
 def degree_based(self):
     """
     perform step 4 of Alon algorithm, performing the refinement of the pairs, processing nodes according to their degree. Some heuristic is applied in order to
     speed up the process
     """
-    #ipdb.set_trace()
+    # ipdb.set_trace()
     to_be_refined = list(range(1, self.k + 1))
     irregular_r_indices = []
     is_classes_cardinality_odd = self.classes_cardinality % 2 == 1
@@ -323,8 +372,8 @@ def degree_based(self):
                 irregular_r_indices.append(r)
 
         if irregular_r_indices:
-            np.random.seed(314)
-            random.seed(314)
+            # np.random.seed(314)
+            # random.seed(314)
             chosen = random.choice(irregular_r_indices)
             to_be_refined.remove(chosen)
             irregular_r_indices = []
@@ -338,7 +387,8 @@ def degree_based(self):
                 compl_length = len(self.certs_compls_list[chosen - 2][s - 1][1][i])
 
                 greater_set_ind = np.argmax([cert_length, compl_length])
-                lesser_set_ind = np.argmin([cert_length, compl_length]) if cert_length != compl_length else 1 - greater_set_ind
+                lesser_set_ind = np.argmin(
+                    [cert_length, compl_length]) if cert_length != compl_length else 1 - greater_set_ind
 
                 greater_set = self.certs_compls_list[chosen - 2][s - 1][greater_set_ind][i]
                 lesser_set = self.certs_compls_list[chosen - 2][s - 1][lesser_set_ind][i]
@@ -348,15 +398,17 @@ def degree_based(self):
                 difference = len(greater_set) - self.classes_cardinality
                 # retrieve the first <difference> nodes sorted by degree.
                 # N.B. NODES ARE SORTED IN DESCENDING ORDER
-                difference_nodes_ordered_by_degree = sorted(greater_set, key=lambda el: s_r_degs[el], reverse=True)[0:difference]
-                #difference_nodes_ordered_by_degree = sorted(greater_set, key=lambda el: np.where(self.degrees == el)[0], reverse=True)[0:difference]
+                difference_nodes_ordered_by_degree = sorted(greater_set, key=lambda el: s_r_degs[el], reverse=True)[
+                                                     0:difference]
+                # difference_nodes_ordered_by_degree = sorted(greater_set, key=lambda el: np.where(self.degrees == el)[0], reverse=True)[0:difference]
 
                 self.classes[difference_nodes_ordered_by_degree] = 0
         else:
             self.k += 1
             #  TODO: cannot compute the r_s_degs since the candidate does not have any e-regular pair  <14-11-17, lakj>
-            s_indices_ordered_by_degree = sorted(list(np.where(self.classes == s)[0]), key=lambda el: np.where(self.degrees == el)[0], reverse=True)
-            #s_indices_ordered_by_degree = sorted(list(np.where(self.classes == s)[0]), key=lambda el: s_r_degs[el], reverse=True)
+            s_indices_ordered_by_degree = sorted(list(np.where(self.classes == s)[0]),
+                                                 key=lambda el: np.where(self.degrees == el)[0], reverse=True)
+            # s_indices_ordered_by_degree = sorted(list(np.where(self.classes == s)[0]), key=lambda el: s_r_degs[el], reverse=True)
 
             if is_classes_cardinality_odd:
                 self.classes[s_indices_ordered_by_degree.pop(0)] = 0
@@ -372,8 +424,8 @@ def degree_based(self):
 
     C0_cardinality = np.sum(self.classes == 0)
     if C0_cardinality > self.epsilon * self.N:
-        #sys.exit("Error: not enough nodes in C0 to create a new class.Try to increase epsilon or decrease the number of nodes in the graph")
-        #print("Error: not enough nodes in C0 to create a new class. Try to increase epsilon or decrease the number of nodes in the graph")
+        # sys.exit("Error: not enough nodes in C0 to create a new class.Try to increase epsilon or decrease the number of nodes in the graph")
+        # print("Error: not enough nodes in C0 to create a new class. Try to increase epsilon or decrease the number of nodes in the graph")
 
         if not partition_correct(self):
             ipdb.set_trace()

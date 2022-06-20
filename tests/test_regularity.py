@@ -7,13 +7,16 @@ import pytest
 from rgr.algorithms.conditions.regularity_conditions import RegularityConditions
 from rgr.algorithms.partition_pair import PartitionPair
 from rgr.algorithms.refinement import Refinement
-from rgr.algorithms.regularity import random_partition_init, check_regularity_pairs, is_partitioning_regular
+from rgr.algorithms.regularity import random_partition_init, check_regularity_pairs, is_partitioning_regular, regularity
+from rgr.algorithms.matrix_reduction import matrix_reduction
 from rgr.collection.standard import stochastic_block_model
-from rgr.constants.types import get_dtype_idx
+from rgr.constants.types import get_dtype_idx, get_dtype_adj
 from tests.test_code_external.graph_reducer.classes_pair import ClassesPair
 from tests.test_code_external.graph_reducer.conditions import alon1, alon2, alon3
 from tests.test_code_external.graph_reducer.szemeredi_regularity_lemma import SzemerediRegularityLemma
-from tests.test_code_external.graph_reducer.refinement_step import indeg_guided
+from tests.test_code_external.graph_reducer.refinement_step import indeg_guided, compute_indensities
+from tests.test_code_external.graph_reducer.szemeredi_lemma_builder import generate_szemeredi_reg_lemma_implementation
+from tests.test_code_external.graph_reducer.codec import Codec
 
 
 @dataclass
@@ -87,18 +90,19 @@ def _create_mock_partition(reg: MockSzemeredi, partitions: List[np.ndarray]) -> 
     reg.classes_cardinality = partitions[1].size
 
 
-@pytest.mark.parametrize('n_nodes, n_blocks, n_partitions',
+@pytest.mark.parametrize('n_nodes, n_blocks, n_partitions, intra_noise, inter_noise',
                          [
-                             (15, 3, 5),
-                             (18, 3, 5),
-                             (15, 3, 6),
-                             (30, 5, 5),
-                             (130, 5, 5),
-                             (130, 7, 9),
+                             (15, 3, 5, 0, 0),
+                             (18, 3, 5, 0, 0),
+                             (15, 3, 6, 0, 0),
+                             (30, 5, 5, 0, 0),
+                             (130, 5, 5, 0, 0),
+                             (130, 7, 9, 0, 0),
+                             (530, 5, 2, 0.1, 0.5),
                          ])
-def test_pairs(n_nodes, n_blocks, n_partitions):
+def test_pairs(n_nodes, n_blocks, n_partitions, intra_noise, inter_noise):
     np.random.seed(0)
-    graph = stochastic_block_model(n_nodes, n_blocks, 0, 0)
+    graph = stochastic_block_model(n_nodes, n_blocks, intra_noise, inter_noise)
     partitions = random_partition_init(n_nodes, n_partitions)
 
     reg = _init_szemeredi(n_nodes, n_partitions)
@@ -117,19 +121,24 @@ def test_pairs(n_nodes, n_blocks, n_partitions):
             assert pair.prts_size == pair_expected.classes_n
 
 
-@pytest.mark.parametrize('n_nodes, n_blocks, n_partitions',
+@pytest.mark.parametrize('n_nodes, n_blocks, n_partitions, intra_noise, inter_noise',
                          [
-                             (30, 3, 5),
-                             (18, 3, 5),
-                             (15, 3, 6),
-                             (30, 5, 5),
-                             (71, 7, 7),
-                             (130, 5, 5),
-                             (130, 7, 9),
+                             (30, 3, 5, 0, 0),
+                             (30, 3, 5, 0.1, 0.1),
+                             (30, 3, 5, 0.5, 0.5),
+                             (18, 3, 5, 0, 0),
+                             (18, 3, 5, 0.1, 0.1),
+                             (15, 3, 6, 0, 0),
+                             (30, 5, 5, 0, 0),
+                             (71, 7, 7, 0, 0),
+                             (130, 5, 5, 0, 0),
+                             (130, 7, 9, 0, 0),
+                             (130, 7, 9, 0.1, 0.2),
+                             (530, 5, 2, 0.1, 0.5),
                          ])
-def test_conditions(n_nodes, n_blocks, n_partitions):
+def test_conditions(n_nodes, n_blocks, n_partitions, intra_noise, inter_noise):
     np.random.seed(0)
-    graph = stochastic_block_model(n_nodes, n_blocks, 0, 0)
+    graph = stochastic_block_model(n_nodes, n_blocks, intra_noise, inter_noise)
     partitions = random_partition_init(n_nodes, n_partitions)
 
     reg = _init_szemeredi(n_nodes, n_partitions)
@@ -159,19 +168,20 @@ def test_conditions(n_nodes, n_blocks, n_partitions):
                 assert np.array_equal(expected_compl_s, certs_compls.s_compls)
 
 
-@pytest.mark.parametrize('n_nodes, n_blocks, n_partitions',
+@pytest.mark.parametrize('n_nodes, n_blocks, n_partitions, intra_noise, inter_noise',
                          [
-                             (30, 3, 5),
-                             (18, 3, 5),
-                             (15, 3, 6),
-                             (30, 5, 5),
-                             (71, 7, 7),
-                             (130, 5, 5),
-                             (130, 7, 9),
+                             (30, 3, 5, 0, 0),
+                             (18, 3, 5, 0, 0),
+                             (15, 3, 6, 0, 0),
+                             (30, 5, 5, 0, 0),
+                             (71, 7, 7, 0, 0),
+                             (130, 5, 5, 0, 0),
+                             (130, 7, 9, 0, 0),
+                             (530, 5, 2, 0.1, 0.5),
                          ])
-def test_pairs_regularity(n_nodes, n_blocks, n_partitions):
+def test_pairs_regularity(n_nodes, n_blocks, n_partitions, intra_noise, inter_noise):
     np.random.seed(0)
-    graph = stochastic_block_model(n_nodes, n_blocks, 0, 0)
+    graph = stochastic_block_model(n_nodes, n_blocks, intra_noise, inter_noise)
     partitions = random_partition_init(n_nodes, n_partitions)
 
     reg = _init_szemeredi(n_nodes, n_partitions)
@@ -181,69 +191,241 @@ def test_pairs_regularity(n_nodes, n_blocks, n_partitions):
     reg.certs_compls_list = []
     reg.regularity_list = []
     reg.is_weighted = False
-    reg.conditions = [alon1, alon2, alon3]
+    reg.conditions = [alon1, alon3, alon2]
 
     n_irr_expected = SzemerediRegularityLemma.check_pairs_regularity(reg)
     is_regular_expected = SzemerediRegularityLemma.check_partition_regularity(reg, n_irr_expected)
 
+    ##########
     tmp = check_regularity_pairs(graph.adjacency,
+                                 n_partitions,
                                  partitions,
                                  epsilon=reg.epsilon)
-    n_irregular_pairs, certificates_complements, regular_partitions = tmp
+    n_irregular_pairs, certificates_complements, regular_partitions, sze_idx = tmp
 
     is_regular = is_partitioning_regular(n_irregular_pairs, n_partitions, reg.epsilon)
 
+    assert n_irregular_pairs == n_irr_expected
+    for exp_l1, l1 in zip(reg.certs_compls_list, certificates_complements):
+        for exp_l2, l2 in zip(exp_l1, l1):
+            assert np.array_equal(l2.r_certs, exp_l2[0][0])
+            assert np.array_equal(l2.s_certs, exp_l2[0][1])
+            assert np.array_equal(l2.r_compls, exp_l2[1][0])
+            assert np.array_equal(l2.s_compls, exp_l2[1][1])
+    assert all(val1 == val2 for val1, val2 in zip(reg.regularity_list, regular_partitions))
+    # print(f'------ {reg.sze_idx}, {sze_idx}, {reg.sze_idx - sze_idx}')
+    assert reg.sze_idx == sze_idx
     assert is_regular_expected == is_regular
 
 
-@pytest.mark.parametrize('n_nodes, n_blocks, n_partitions',
+from collections import defaultdict
+
+
+def _reverse_partitions(classes):
+    tmp = defaultdict(list)  # [] for _ in range(len(partitions))]
+    for idx, cls in enumerate(classes):
+        tmp[cls].append(idx)
+
+    return sorted(tmp.items(), key=lambda x: x[0])
+
+
+@pytest.mark.parametrize('n_nodes, n_blocks, n_partitions, intra_noise, inter_noise',
                          [
-                             (30, 3, 5),
-                             # (18, 3, 5),
-                             # (15, 3, 6),
-                             # (30, 5, 5),
-                             # (71, 7, 7),
-                             # (130, 5, 5),
-                             # (130, 7, 9),
+                             # (130, 5, 5, 0, 0),
+                             # (130, 7, 9, 0, 0),
+                             # (130, 7, 9, 0.5, 0.5),
+                             (530, 5, 16, 0.1, 0.5),
+                             (1300, 10, 2, 0.5, 0.5),
+                             (1457, 11, 23, 0.1, 0.5),
                          ])
-def test_refinement(n_nodes, n_blocks, n_partitions):
+def test_refinement(n_nodes, n_blocks, n_partitions, intra_noise, inter_noise):
     np.random.seed(0)
-    graph = stochastic_block_model(n_nodes, n_blocks, 0, 0)
-    partitions = random_partition_init(n_nodes, n_partitions)
+    graph = stochastic_block_model(n_nodes, n_blocks, intra_noise, inter_noise)
+    partitions = random_partition_init(graph.n_nodes, n_partitions)
 
     reg = _init_szemeredi(n_nodes, n_partitions)
     reg.adj_mat = graph.adjacency
     _create_mock_partition(reg, partitions)
     reg.classes = reg.classes.astype(np.int64)
-    print(reg.classes.dtype)
 
     reg.certs_compls_list = []
     reg.regularity_list = []
     reg.is_weighted = False
-    reg.conditions = [alon1, alon2, alon3]
+    reg.conditions = [alon1, alon3, alon2]
 
     n_irr_expected = SzemerediRegularityLemma.check_pairs_regularity(reg)
-    print(reg.classes)
+
+    np.random.seed(0)
     res = indeg_guided(reg)
-    print(reg.classes)
 
-    for c in range(reg.k):
-        print(np.where(reg.classes == c)[0])
-    print(reg.k)
+    # Format the partition to match the current partition format
+    expected_partitions = _reverse_partitions(reg.classes)
 
-    #
     tmp = check_regularity_pairs(graph.adjacency,
+                                 n_partitions,
                                  partitions,
-                                 epsilon=reg.epsilon)
-    n_irregular_pairs, certificates_complements, regular_partitions = tmp
-    print('below-------')
+                                 epsilon=0.285)
+    n_irregular_pairs, certificates_complements, regular_partitions, sze_idx = tmp
+
+    # print(sze_idx, reg.sze_idx)
+
+    assert n_irregular_pairs == n_irr_expected
+
+    # Reset the seed to be sure to have the same results as the other lib
+    np.random.seed(0)
     ref = Refinement(graph.adjacency,
+                     n_partitions,
                      partitions,
                      certificates_complements,
                      reg.epsilon)
 
-    print(ref.new_partitions)
+    # Check if the refinement worked
+    assert ref.is_refined == res
+
+    # Check if the new partitions equal what is expected from the other lib
+    for key, arr in expected_partitions:
+        assert np.array_equal(sorted(ref.new_partitions[key]),
+                              arr)
+
+
+@pytest.mark.parametrize('n_nodes, n_blocks, n_partitions, intra_noise, inter_noise',
+                         [
+                             (530, 5, 2, 0.1, 0.5),
+                             (530, 5, 4, 0.1, 0.5),
+                             (1300, 10, 2, 0.5, 0.5),
+                             (1457, 11, 2, 0.1, 0.5),
+                         ])
+def test_graph_regularity(n_nodes, n_blocks, n_partitions, intra_noise, inter_noise):
+    np.random.seed(0)
+    # Create the artificial graph
+    graph = stochastic_block_model(n_nodes, n_blocks, intra_noise, inter_noise)
+    # Create the initial partition
+    np.random.seed(0)
+    partitions = random_partition_init(n_nodes, n_partitions)
+
+    # print()
+    # np.random.seed(0)
+    szemeredi_builder = generate_szemeredi_reg_lemma_implementation(kind='alon',
+                                                                    sim_mat=graph.adjacency,
+                                                                    epsilon=0.285,
+                                                                    is_weighted=False,
+                                                                    random_initialization=True,
+                                                                    refinement='indeg_guided',
+                                                                    drop_edges_between_irregular_pairs=True
+
+                                                                    )
+
+    reg = _init_szemeredi(n_nodes, n_partitions)
+    _create_mock_partition(reg, partitions)
+    # np.random.seed(0)
+    import time
+
+    # start_time = time.time()
+    result_exp = szemeredi_builder.run(reg.classes,
+                                       b=n_partitions,
+                                       compression_rate=0.5,
+                                       iteration_by_iteration=False,
+                                       verbose=False
+                                       )
+    # print(f'Time old: {time.time() - start_time}')
+
+    is_reg_exp, n_partitions_exp, partitions_exp, sze_idx_exp, regularity_list_exp, n_irreg_pairs_exp = result_exp
+
+    # print(
+    #     '######################################################################################################################################')
+    # print(
+    #     '######################################################################################################################################')
+    # print(
+    #     '######################################################################################################################################')
+    # print(
+    #     '######################################################################################################################################')
+    # print(
+    #     '######################################################################################################################################')
+
+    #######
+    np.random.seed(0)
+    start_time = time.time()
+    results_opt = regularity(graph, n_partitions, epsilon=0.285, compression_rate=0.5, verbose=False)
+
+    # print(f'Time new: {time.time() - start_time}')
     #
-    # is_regular = is_partitioning_regular(n_irregular_pairs, n_partitions, reg.epsilon)
-    #
-    # assert is_regular_expected == is_regular
+    is_reg_opt, n_partitions_opt, partitions_opt, sze_idx_opt, regularity_list_opt, n_irreg_pairs_opt = results_opt
+
+    # print(partitions_opt)
+    # # print(partitions_exp)
+    # print(_reverse_partitions(partitions_exp))
+    # for part_opt, part_exp in zip(partitions_opt, _reverse_partitions(partitions_exp)):
+    #     print(part_opt)
+    #     print(np.array(part_exp[1]))
+    #     assert np.array_equal(part_opt, np.array(part_exp[1]))
+    #     pass
+    assert n_partitions_opt == n_partitions_exp
+    assert all(np.array_equal(part_opt, np.array(part_exp[1])) for part_opt, part_exp in
+               zip(partitions_opt, _reverse_partitions(partitions_exp)))
+    assert sze_idx_opt == sze_idx_exp
+    assert regularity_list_opt == regularity_list_exp
+    # Check if all the sub-elements of the regularity list are equal
+    assert all(el1 == el2 for el1, el2 in zip(regularity_list_opt, regularity_list_exp))
+    assert n_irreg_pairs_opt == n_irreg_pairs_exp
+
+
+@pytest.mark.parametrize('n_nodes, n_blocks, n_partitions, intra_noise, inter_noise',
+                         [
+                             (530, 5, 2, 0.1, 0.5),
+                             (530, 5, 4, 0.1, 0.5),
+                             (1300, 10, 2, 0.5, 0.5),
+                             (1457, 11, 2, 0.1, 0.5),
+                         ])
+def test_graph_reduction(n_nodes, n_blocks, n_partitions, intra_noise, inter_noise):
+    np.random.seed(0)
+    # Create the artificial graph
+    graph = stochastic_block_model(n_nodes, n_blocks, intra_noise, inter_noise)
+    # Create the initial partition
+    np.random.seed(0)
+    partitions = random_partition_init(n_nodes, n_partitions)
+
+    print()
+    # ##### Expected Behavior ###### #
+
+    reg = _init_szemeredi(n_nodes, n_partitions)
+    _create_mock_partition(reg, partitions)
+
+    codec = Codec(0.285, 0.285, 1)
+    szemeredi_builder = generate_szemeredi_reg_lemma_implementation(kind='alon',
+                                                                    sim_mat=graph.adjacency,
+                                                                    epsilon=0.285,
+                                                                    is_weighted=False,
+                                                                    random_initialization=True,
+                                                                    refinement='indeg_guided',
+                                                                    drop_edges_between_irregular_pairs=True
+                                                                    )
+
+    result_exp = szemeredi_builder.run(reg.classes,
+                                       b=n_partitions,
+                                       compression_rate=0.5,
+                                       iteration_by_iteration=False,
+                                       verbose=False
+                                       )
+
+    is_reg_exp, n_partitions_exp, partitions_exp, sze_idx_exp, regularity_list_exp, n_irreg_pairs_exp = result_exp
+    reduced_mat_exp = codec.reduced_matrix(graph.adjacency,
+                                       n_partitions_exp,
+                                       0.285,
+                                       partitions_exp,
+                                       regularity_list_exp)
+    # reduced_mat_exp = reduced_mat_exp.astype(get_dtype_adj())
+
+    # ##### Code to test ###### #
+    np.random.seed(0)
+    results_opt = regularity(graph, n_partitions, epsilon=0.285, compression_rate=0.05, verbose=False)
+
+    is_reg_opt, n_partitions_opt, partitions_opt, sze_idx_opt, regularity_list_opt, n_irreg_pairs_opt = results_opt
+
+    reduced_mat_opt = matrix_reduction(graph.adjacency,
+                                       n_partitions_opt,
+                                       partitions_opt)
+
+    # ##### Assert section ######
+    assert reduced_mat_opt.shape == reduced_mat_exp.shape
+    # assert np.allclose(reduced_mat_opt, reduced_mat_exp)
+    assert np.array_equal(reduced_mat_opt, reduced_mat_exp)

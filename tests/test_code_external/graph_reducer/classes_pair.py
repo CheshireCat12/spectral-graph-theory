@@ -25,7 +25,8 @@ class ClassesPair:
 
         # Compute the density of a bipartite graph as the sum of the edges over the number of all possible edges in the bipartite graph
         self.bip_density = self.bip_adj_mat.sum() / (self.classes_n ** 2.0)
-
+        # print(f'bip sum edges: {self.bip_adj_mat.sum()}')
+        # print(f'prts_size: {self.classes_n}')
         # Current epsilon used
         self.epsilon = epsilon
 

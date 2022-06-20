@@ -13,7 +13,7 @@ cdef class RegularityConditions:
         self.pair = pair
 
         # Threshold of the deviation of the degree from the average bipartite degree
-        self.threshold_dev = self.pair.eps ** 4 * self.pair.prts_size
+        self.threshold_dev = (self.pair.eps ** 4) * self.pair.prts_size
 
     @cython.boundscheck(False)
     @cython.wraparound(False)
@@ -31,14 +31,15 @@ cdef class RegularityConditions:
 
         conditions_to_verify = [
             self.condition_1,
-            self.condition_2,
             self.condition_3,
+            self.condition_2,
         ]
 
         for idx, condition in enumerate(conditions_to_verify):
             is_condition_verified, certs_compls = condition()
 
             if is_condition_verified:
+                # print(f'cond num: {idx}')
                 return is_condition_verified, certs_compls
         else:
             return False, CertificatesComplements()
@@ -77,6 +78,9 @@ cdef class RegularityConditions:
 
         deviated_nodes_mask = np.abs(self.pair.s_degrees - self.pair.bip_avg_deg) >= self.threshold_dev
 
+        # print(f'deviated node mask: {np.sum(deviated_nodes_mask)}')
+        # print(f'size_cls: {self.pair.prts_size}')
+        # print(f'threshold dev: {threshold_n_nodes}')
         if np.sum(deviated_nodes_mask) > threshold_n_nodes:
             is_cond_verified = True
 
@@ -129,8 +133,7 @@ cdef class RegularityConditions:
         s_certs, y0 = compute_y0(ngh_dev,
                                  self.pair.s_indices,
                                  yp_filter,
-                                 self.pair.prts_size,
-                                 self.pair.eps)
+                                 self.threshold_dev)
 
         if s_certs is not None:
             assert np.array_equal(np.intersect1d(s_certs, self.pair.s_indices),
@@ -171,7 +174,7 @@ cpdef np.ndarray neighbourhood_deviation(np.ndarray[DTYPE_ADJ_t, ndim=2] bip_adj
         np.ndarray[DTYPE_FLOAT_t, ndim=2] mat
 
     mat = np.matmul(bip_adj.T, bip_adj).astype(DTYPE_FLOAT)
-    mat = mat - (bip_avg_deg ** 2) / prts_cardinality
+    mat -= (bip_avg_deg ** 2) / prts_cardinality
 
     return mat
 
