@@ -409,10 +409,10 @@ def test_graph_reduction(n_nodes, n_blocks, n_partitions, intra_noise, inter_noi
 
     is_reg_exp, n_partitions_exp, partitions_exp, sze_idx_exp, regularity_list_exp, n_irreg_pairs_exp = result_exp
     reduced_mat_exp = codec.reduced_matrix(graph.adjacency,
-                                       n_partitions_exp,
-                                       0.285,
-                                       partitions_exp,
-                                       regularity_list_exp)
+                                           n_partitions_exp,
+                                           0.285,
+                                           partitions_exp,
+                                           regularity_list_exp)
     # reduced_mat_exp = reduced_mat_exp.astype(get_dtype_adj())
 
     # ##### Code to test ###### #
