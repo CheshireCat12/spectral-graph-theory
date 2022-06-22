@@ -21,8 +21,9 @@ cdef class PartitionPairFast:
             int bip_sum_edges, prts_size
             double bip_avg_deg, bip_density
             double eps
-            np.ndarray adjacency, bip_adj
-            DTYPE_ADJ_t[:, ::1] adjacency_, bip_adj_
-            np.ndarray s_indices, r_indices
-            DTYPE_UINT_t[::1] s_indices_, r_indices_
-            np.ndarray s_degrees, r_degrees
+            # np.ndarray adjacency, bip_adj
+            DTYPE_ADJ_t[:, ::1] adjacency, bip_adj
+            # np.ndarray s_indices, r_indices
+            DTYPE_UINT_t[::1] s_indices, r_indices
+            # np.ndarray s_degrees, r_degrees
+            DTYPE_UINT_t[::1] s_degrees, r_degrees

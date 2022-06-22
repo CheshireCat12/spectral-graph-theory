@@ -26,14 +26,14 @@ def test_speed_compute():
 
 @pytest.mark.parametrize('size, axis',
                          [
-                             ((10000, 10000), 1),
-                             ((10000, 10000), 0),
+                             ((1000, 400), 0),
+                             ((1000, 400), 1),
                          ])
 def test_speed_sum_mat_axis(size, axis):
     print()
     np.random.seed(0)
     arr = np.random.random_integers(0, 1, size=size).astype(np.int8)
-
+    # print(arr)
     starttime = timeit.default_timer()
     exp_val = np.sum(arr, axis=axis)
     print(f"Time difference is (NP): {(timeit.default_timer() - starttime) * 1000}")
@@ -41,13 +41,17 @@ def test_speed_sum_mat_axis(size, axis):
     starttime = timeit.default_timer()
     opt_val = sum_mat_axis(arr, axis=axis)
     print(f"Time difference is (Cython): {(timeit.default_timer() - starttime) * 1000}")
-
+    # print(exp_val)
+    # print(np.array(opt_val))
     assert np.array_equal(np.array(opt_val), exp_val)
 
 
 @pytest.mark.parametrize('n_nodes, n_partitions',
                          [
+                             (500, 5),
+                             (10000, 5),
                              (10000, 50),
+                             (10000, 500),
                          ])
 def test_speed_partition_pair(n_nodes, n_partitions):
     print()
