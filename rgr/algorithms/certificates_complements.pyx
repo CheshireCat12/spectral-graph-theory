@@ -1,8 +1,11 @@
 import numpy as np
+cimport numpy as np
+cimport cython
 
 
 cdef class CertificatesComplements:
 
+    @cython.nonecheck(False)
     def __init__(self, list certificates=None, list complements=None):
         """
 
@@ -14,28 +17,34 @@ cdef class CertificatesComplements:
                 for idx r and s (e.g., [r_compls, s_compls])
         """
         if certificates is None:
-            certificates = [np.array([], dtype=DTYPE_IDX)] * 2
+            certificates = [np.array([], dtype=DTYPE_UINT)] * 2
         if complements is None:
-            complements = [np.array([], dtype=DTYPE_IDX)] * 2
+            complements = [np.array([], dtype=DTYPE_UINT)] * 2
 
         self.certificates = certificates
         self.complements = complements
 
-    @property
-    def r_certs(self):
-        return self.certificates[0]
+        self.r_certs = certificates[0]
+        self.s_certs = certificates[1]
 
-    @property
-    def s_certs(self):
-        return self.certificates[1]
+        self.r_compls = complements[0]
+        self.s_compls = complements[1]
 
-    @property
-    def r_compls(self):
-        return self.complements[0]
-
-    @property
-    def s_compls(self):
-        return self.complements[1]
+    # @property
+    # def r_certs(self):
+    #     return self.certificates[0]
+    #
+    # @property
+    # def s_certs(self):
+    #     return self.certificates[1]
+    #
+    # @property
+    # def r_compls(self):
+    #     return self.complements[0]
+    #
+    # @property
+    # def s_compls(self):
+    #     return self.complements[1]
 
     def __repr__(self):
         return f'Certificates {self.certificates}' \

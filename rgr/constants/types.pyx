@@ -11,3 +11,6 @@ cpdef type get_dtype_adj():
 
 cpdef type get_dtype_idx():
     return DTYPE_IDX
+
+cpdef type get_dtype_uint():
+    return DTYPE_UINT

@@ -1,9 +1,12 @@
 import numpy as np
 
 from rgr.algorithms.conditions.regularity_conditions import RegularityConditions
-from rgr.algorithms.partition_pair import PartitionPair
+from rgr.algorithms.partition_pair import PartitionPairSlow, PartitionPair
 from rgr.algorithms.refinement import Refinement
 
+cimport cython
+
+@cython.profile(True)
 cpdef list random_partition_init(int n_nodes, int n_partitions, bint sort_partitions=True):
     """
     Create the initial random partitioning of Alon algorithm.
@@ -42,6 +45,8 @@ cpdef list random_partition_init(int n_nodes, int n_partitions, bint sort_partit
 
     return partitions
 
+
+@cython.profile(True)
 cpdef tuple check_regularity_pairs(np.ndarray adjacency,
                                    int n_partitions,
                                    list partitions,
@@ -80,7 +85,8 @@ cpdef tuple check_regularity_pairs(np.ndarray adjacency,
         regular_partitions.append([])
 
         for s in range(1, r):
-            pair = PartitionPair(adjacency, partitions, r, s, eps=epsilon)
+            pair = PartitionPairSlow(adjacency, partitions, r, s, eps=epsilon)
+            pair_f = PartitionPair(adjacency, partitions, r, s, eps=epsilon)
 
             reg_cond = RegularityConditions(pair)
             is_cond_verified, certs_compls = reg_cond.conditions()
@@ -110,6 +116,7 @@ cpdef tuple check_regularity_pairs(np.ndarray adjacency,
     # print(f'n_partitions - {n_partitions}')
     return n_irregular_pairs, certificates_complements, regular_partitions, sze_idx
 
+@cython.profile(True)
 cpdef bint is_partitioning_regular(int n_irregular_pairs, int n_partitions, double epsilon):
     """
     
@@ -129,6 +136,7 @@ cpdef bint is_partitioning_regular(int n_irregular_pairs, int n_partitions, doub
 
     return n_irregular_pairs <= threshold
 
+@cython.profile(True)
 cpdef tuple regularity(Graph graph,
                        int n_partitions,
                        double epsilon,

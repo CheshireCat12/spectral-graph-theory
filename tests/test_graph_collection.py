@@ -26,8 +26,8 @@ DTYPE_ADJ = get_dtype_adj()
 def test_complete(n_nodes, expected_adj):
     graph = complete_graph(n_nodes)
 
+    assert graph.n_nodes == n_nodes
     assert np.array_equal(graph.adjacency, expected_adj)
-    assert graph.adjacency.dtype == DTYPE_ADJ
 
 
 ##############################
@@ -55,8 +55,8 @@ def test_complete(n_nodes, expected_adj):
 def test_cycle(n_nodes, expected_adj):
     graph = cycle_graph(n_nodes)
 
+    assert graph.n_nodes == n_nodes
     assert np.array_equal(graph.adjacency, expected_adj)
-    assert graph.adjacency.dtype == DTYPE_ADJ
 
 
 ##############################
@@ -81,8 +81,8 @@ def test_cycle(n_nodes, expected_adj):
 def test_path(n_nodes, expected_adj):
     graph = path_graph(n_nodes)
 
+    assert graph.n_nodes == n_nodes
     assert np.array_equal(graph.adjacency, expected_adj)
-    assert graph.adjacency.dtype == DTYPE_ADJ
 
 ##############################
 # Star Graph
@@ -107,8 +107,8 @@ def test_path(n_nodes, expected_adj):
 def test_star(n_nodes, expected_adj):
     graph = star_graph(n_nodes)
 
+    assert graph.n_nodes == n_nodes
     assert np.array_equal(graph.adjacency, expected_adj)
-    assert graph.adjacency.dtype == DTYPE_ADJ
 
 ##############################
 # Erdos-renyi Graph
@@ -136,8 +136,8 @@ def test_erdos_renyi(n_nodes, expected_adj):
     np.random.seed(42)
     graph = erdos_renyi_graph(n_nodes, prob_edge=0.8)
 
+    assert graph.n_nodes == n_nodes
     assert np.array_equal(graph.adjacency, expected_adj)
-    assert graph.adjacency.dtype == DTYPE_ADJ
 
 
 @pytest.mark.parametrize('n_nodes, n_clusters',
@@ -157,5 +157,5 @@ def test_block_model_without_noise(n_nodes, n_clusters):
 
     expected += expected.T
 
+    assert graph.n_nodes == n_nodes
     assert np.array_equal(graph.adjacency, expected)
-    assert graph.adjacency.dtype == DTYPE_ADJ

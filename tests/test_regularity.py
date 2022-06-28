@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 
 from rgr.algorithms.conditions.regularity_conditions import RegularityConditions
-from rgr.algorithms.partition_pair import PartitionPair, PartitionPairFast
+from rgr.algorithms.partition_pair import PartitionPairSlow, PartitionPair
 from rgr.algorithms.refinement import Refinement
 from rgr.algorithms.regularity import random_partition_init, check_regularity_pairs, is_partitioning_regular, regularity
 from rgr.algorithms.matrix_reduction import matrix_reduction
@@ -110,7 +110,7 @@ def test_pairs(n_nodes, n_blocks, n_partitions, intra_noise, inter_noise):
 
     for r in range(2, n_partitions + 1):
         for s in range(1, r):
-            pair = PartitionPair(graph.adjacency, partitions, r, s, eps=0.285)
+            pair = PartitionPairSlow(graph.adjacency, partitions, r, s, eps=0.285)
             pair_expected = ClassesPair(graph.adjacency, reg.classes, r, s, epsilon=0.285)
 
             assert np.array_equal(pair.bip_adj, pair_expected.bip_adj_mat)
@@ -123,12 +123,12 @@ def test_pairs(n_nodes, n_blocks, n_partitions, intra_noise, inter_noise):
 @pytest.mark.parametrize('n_nodes, n_blocks, n_partitions, intra_noise, inter_noise',
                          [
                              (15, 3, 5, 0, 0),
-                             # (18, 3, 5, 0, 0),
-                             # (15, 3, 6, 0, 0),
-                             # (30, 5, 5, 0, 0),
-                             # (130, 5, 5, 0, 0),
-                             # (130, 7, 9, 0, 0),
-                             # (530, 5, 2, 0.1, 0.5),
+                             (18, 3, 5, 0, 0),
+                             (15, 3, 6, 0, 0),
+                             (30, 5, 5, 0, 0),
+                             (130, 5, 5, 0, 0),
+                             (130, 7, 9, 0, 0),
+                             (530, 5, 2, 0.1, 0.5),
                          ])
 def test_pairs_fast(n_nodes, n_blocks, n_partitions, intra_noise, inter_noise):
     np.random.seed(0)
@@ -140,7 +140,7 @@ def test_pairs_fast(n_nodes, n_blocks, n_partitions, intra_noise, inter_noise):
     print()
     for r in range(2, n_partitions + 1):
         for s in range(1, r):
-            pair = PartitionPairFast(graph.adjacency, partitions, r, s, eps=0.285)
+            pair = PartitionPair(graph.adjacency, partitions, r, s, eps=0.285)
             pair_expected = ClassesPair(graph.adjacency, reg.classes, r, s, epsilon=0.285)
             # pair.r_degrees
             # print(pair_expected.bip_adj_mat.sum())

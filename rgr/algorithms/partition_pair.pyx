@@ -1,18 +1,17 @@
-# distutils: extra_compile_args=-fopenmp
-# distutils: extra_link_args=-fopenmp
-
 import numpy as np
 cimport numpy as np
-from cython.parallel import prange
 cimport cython
+
+from rgr.algorithms.utils cimport sum_matrix, sum_mat_axis
 
 np.import_array()
 
-cdef class PartitionPair:
+@cython.profile(True)
+cdef class PartitionPairSlow:
     """Data class used to handle information between a pair of partitions."""
 
     def __init__(self,
-                 np.ndarray[DTYPE_ADJ_t, ndim=2] adjacency,
+                 np.ndarray[DTYPE_ADJ_t, ndim=2, mode='c'] adjacency,
                  list partitions,
                  int r,
                  int s,
@@ -36,7 +35,6 @@ cdef class PartitionPair:
 
         # Bipartite adjacency matrix
         self.bip_adj = self.adjacency[np.ix_(self.s_indices, self.r_indices)]
-        # temp = self.adjacency[np.ix_(self.s_indices, self.r_indices)]
 
         # Cardinality of the partitions
         self.prts_size = len(self.s_indices) #self.bip_adj.shape[0]
@@ -57,7 +55,8 @@ cdef class PartitionPair:
         self.r_degrees = np.sum(self.bip_adj, axis=0).astype(DTYPE_UINT)
 
 
-cdef class PartitionPairFast:
+@cython.profile(True)
+cdef class PartitionPair:
     """Data class used to handle information between a pair of partitions."""
 
     @cython.boundscheck(False)
@@ -65,7 +64,6 @@ cdef class PartitionPairFast:
     @cython.nonecheck(False)
     @cython.cdivision(True)
     def __init__(self,
-                 # np.ndarray[DTYPE_ADJ_t, ndim=2, mode='c'] adjacency,
                  DTYPE_ADJ_t[:, ::1] adjacency,
                  list partitions,
                  int r,
@@ -86,6 +84,7 @@ cdef class PartitionPairFast:
             Py_ssize_t max_i, max_j
             DTYPE_UINT_t[::1] r_indices, s_indices
             DTYPE_ADJ_t[:, ::1] bip_adj
+
         self.adjacency = adjacency
         self.r = r
         self.s = s
@@ -99,8 +98,8 @@ cdef class PartitionPairFast:
         max_i = s_indices.shape[0]
         max_j = r_indices.shape[0]
         bip_adj = np.zeros((max_i, max_j), dtype = DTYPE_ADJ)
-        # for i in range(max_i):
-        for i in prange(max_i, nogil=True):
+        for i in range(max_i):
+        # for i in prange(max_i, nogil=True):
             for j in range(max_j):
                 idx_s = s_indices[i]
                 idx_r = r_indices[j]
@@ -114,9 +113,9 @@ cdef class PartitionPairFast:
         # Cardinality of the partitions
         self.prts_size = bip_adj.shape[0]
 
-        self.bip_sum_edges = c_sum_matrix(bip_adj)
+        self.bip_sum_edges = sum_matrix(bip_adj)
 
-        # assert self.prts_size != 0, f'Partition size is zero!'
+        assert self.prts_size != 0, f'Partition size is zero!'
 
         # Bipartite average degree
         # To have a faster summation of the bipartite degrees
@@ -126,56 +125,6 @@ cdef class PartitionPairFast:
 
         self.bip_density = self.bip_sum_edges / float(self.prts_size**2)
 
-        self.s_degrees = c_sum_mat_axis(bip_adj, axis=1)
-        self.r_degrees = c_sum_mat_axis(bip_adj, axis=0)
-
-@cython.boundscheck(False)
-@cython.wraparound(False)
-cdef long c_sum_matrix(DTYPE_ADJ_t[:, ::1] arr1):
-    cdef:
-        Py_ssize_t x, y
-        Py_ssize_t x_max = arr1.shape[0]
-        Py_ssize_t y_max = arr1.shape[1]
-        long results = 0
-
-    for x in range(x_max):
-    # for x in prange(x_max, nogil=True):
-        for y in range(y_max):
-            results += arr1[x, y]
-
-    return results
-
-def sum_matrix(arr):
-    return c_sum_matrix(arr)
-
-@cython.boundscheck(False)
-@cython.wraparound(False)
-cdef DTYPE_UINT_t[::1] c_sum_mat_axis(DTYPE_ADJ_t[:, ::1] arr1, int axis):
-    cdef:
-        Py_ssize_t row, col
-        Py_ssize_t x_max = arr1.shape[0]
-        Py_ssize_t y_max = arr1.shape[1]
-        DTYPE_UINT_t[::1] results
-
-
-    if axis == 1:
-        results = np.zeros(x_max, dtype=DTYPE_UINT)
-    else:
-        results = np.zeros(y_max, dtype=DTYPE_UINT)
-
-    if axis == 1:
-        # for row in range(x_max):
-        for row in prange(x_max, nogil=True):
-            for col in range(y_max):
-                results[row] += arr1[row, col]
-    else:
-        # for col in range(y_max):
-        for col in prange(y_max, nogil=True):
-            for row in range(x_max):
-                results[col] += arr1[row, col]
-
-    return results
-
-def sum_mat_axis(arr, axis):
-    return c_sum_mat_axis(arr, axis)
+        self.s_degrees = sum_mat_axis(bip_adj, axis=1)
+        self.r_degrees = sum_mat_axis(bip_adj, axis=0)
 

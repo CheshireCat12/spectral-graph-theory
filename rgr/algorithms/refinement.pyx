@@ -1,12 +1,16 @@
 import numpy as np
 cimport numpy as np
+cimport cython
 from rgr.algorithms.certificates_complements import CertificatesComplements
 
 np.import_array()
 
 cdef class Refinement:
+
+
+    @cython.profile(True)
     def __init__(self,
-                 np.ndarray[DTYPE_ADJ_t, ndim=2] adjacency,
+                 np.ndarray[DTYPE_ADJ_t, ndim=2, mode='c'] adjacency,
                  int n_partitions,
                  list partitions,
                  list certificates_complements,
@@ -46,10 +50,13 @@ cdef class Refinement:
         # if self.verbose:
         #     print([list(val) for val in self.new_partitions])
 
+    @cython.profile(True)
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
     cpdef double _density(self,
-                          np.ndarray adjacency,
-                          np.ndarray indices_a,
-                          np.ndarray indices_b,
+                          DTYPE_ADJ_t[:, ::1] adjacency,
+                          DTYPE_UINT_t[::1] indices_a,
+                          DTYPE_UINT_t[::1] indices_b,
                           bint same_index_set=False):
         """
         Compute the edge density between two set of vertices
@@ -66,12 +73,14 @@ cdef class Refinement:
     
         """
         cdef:
-            size_is_zero, size_is_one
+            Py_ssize_t i, j
+            bint size_is_zero, size_is_one
             int n_nodes_a, n_nodes_b
+            int idx_a, idx_b
             int max_num_edges
-            int n_edges
-        n_nodes_a = indices_a.size
-        n_nodes_b = indices_b.size
+            int n_edges = 0
+        n_nodes_a = indices_a.shape[0]
+        n_nodes_b = indices_b.shape[0]
 
         size_is_zero = n_nodes_a == n_nodes_b == 0
         size_is_one = n_nodes_a == n_nodes_b == 1
@@ -80,13 +89,30 @@ cdef class Refinement:
 
         if same_index_set:
             max_num_edges = (n_nodes_a * (n_nodes_a - 1)) // 2
-            n_edges = np.sum(np.tril(adjacency[np.ix_(indices_a, indices_b)], -1))
+            # n_edges = np.sum(np.tril(np.asarray(adjacency)[np.ix_(np.asarray(indices_a), np.asarray(indices_b))], -1))
+            # print(f'n_edges old {n_edges}')
+            for i in range(1, n_nodes_a):
+                idx_a = indices_a[i]
+                for j in range(i):
+                    idx_b = indices_b[j]
+                    n_edges += adjacency[idx_a][idx_b]
+
+            # print(f'n_edges new {n_edges}')
         else:
             max_num_edges = n_nodes_a * n_nodes_b
-            n_edges = np.sum(adjacency[np.ix_(indices_a, indices_b)])
+
+            for i in range(n_nodes_a):
+                idx_a = indices_a[i]
+                for j in range(n_nodes_b):
+                    idx_b = indices_b[j]
+                    # print(adjacency[idx_a][idx_b])
+                    n_edges += adjacency[idx_a][idx_b]
+            # n_edges = np.sum(adjacency[np.ix_(indices_a, indices_b)])
+            # print(f'old {n_edges}')
 
         return n_edges / max_num_edges
 
+    @cython.profile(True)
     cpdef np.ndarray _pairwise_densities(self):
         """
         Compute the pairwise density between all partitions
@@ -107,6 +133,7 @@ cdef class Refinement:
 
         return densities
 
+    @cython.profile(True)
     cpdef bint _refinement_degree_based(self):
         """
         
@@ -114,6 +141,10 @@ cdef class Refinement:
 
         """
         cdef:
+            int r, s
+            int old_cardinality
+            list to_be_refined, irregular_r_indices
+            np.ndarray compls
             CertificatesComplements cur_certs_compls
 
         to_be_refined = list(range(1, self.n_partitions + 1))
@@ -186,6 +217,10 @@ cdef class Refinement:
 
         return True
 
+    @cython.profile(True)
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
+    @cython.nonecheck(False)
     cpdef int _choose_candidate(self, int s, list irregulars):
         """
         
@@ -197,14 +232,20 @@ cdef class Refinement:
 
         """
         cdef:
+            Py_ssize_t i, max_i
             int candidate = -1
+            int r
             double candidate_dens, s_dens, r_dens
 
         candidate_dens = float('-inf')
 
         # Exploit the precalculated densities
         s_dens = self.pair_densities[s]
-        for r in irregulars:
+
+        max_i = len(irregulars)
+        for i in range(max_i):
+            r = irregulars[i]
+
             r_dens = self._density_candidate(self.partitions[s],
                                              self.partitions[r],
                                              s_dens,
@@ -215,6 +256,7 @@ cdef class Refinement:
 
         return candidate
 
+    @cython.profile(True)
     cdef double _density_candidate(self,
                                    np.ndarray s_indices,
                                    np.ndarray r_indices,
@@ -222,6 +264,10 @@ cdef class Refinement:
                                    int r):
         return self._density(self.adjacency, s_indices, r_indices) + (1 - abs(s_dens - self.pair_densities[r]))
 
+    @cython.profile(True)
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
+    @cython.nonecheck(False)
     cpdef tuple _update_certs(self, np.ndarray cert, np.ndarray compls):
         """
         
@@ -233,11 +279,29 @@ cdef class Refinement:
 
         """
         cdef:
+            Py_ssize_t i, j, max_i, max_j
+            bint maximize_density
             double dens_cert
+            np.ndarray degrees, set1, set2
+            DTYPE_ADJ_t[::1] sum_adj
+            DTYPE_ADJ_t[:, ::1] adj
+
+
+        max_i = cert.size
+        max_j = cert.size
+        sum_adj = np.zeros(max_i, dtype=DTYPE_ADJ)
+        adj = self.adjacency
+        for i in range(max_i):
+            for j in range(max_j):
+                sum_adj[i] += adj[i][j]
 
         dens_cert = self._density(self.adjacency, cert, cert, True)
-        degrees = np.sum(self.adjacency[np.ix_(cert, cert)], axis=1).argsort()[::-1]
 
+        # degrees = np.sum(self.adjacency[np.ix_(cert, cert)], axis=1).argsort()[::-1]
+        degrees = np.argsort(sum_adj)[::-1]
+
+        # print(degrees)
+        # print(np.sum(self.adjacency[np.ix_(cert, cert)], axis=1).argsort)
         # if self.verbose:
         #     print(f'dens cert: {dens_cert}')
         #     print('degs', degrees)
@@ -274,43 +338,104 @@ cdef class Refinement:
         #     print('|||||||')
         return set1, set2, compls
 
-    cpdef tuple _fill_new_set(self, new_set, compls, maximize_density):
+    @cython.profile(True)
+    cpdef tuple _fill_new_set(self, np.ndarray new_set, np.ndarray compls, bint maximize_density):
         """ Find nodes that can be added
         Move from compls the nodes in can_be_added until we either finish the nodes or reach the desired cardinality
         :param new_set: np.array(), array of indices of the set that must be augmented
         :param compls: np.array(), array of indices used to augment the new_set
         :param maximize_density: bool, used to augment or decrement density
         """
+        cdef:
+            Py_ssize_t i, j, max_i, max_j
+            Py_ssize_t idx_i, idx_j
+            DTYPE_ADJ_t[:, ::1] nodes_, adj
+            DTYPE_UINT_t[:, ::1] tile_
+            DTYPE_UINT_t[:, ::1] to_add_
+            DTYPE_UINT_t[::1] counter
+            double val
 
         val = 1.0 if maximize_density else 0.0
         nodes = self.adjacency[np.ix_(new_set, compls)] == val
 
-        to_add = np.unique(np.tile(compls, (len(new_set), 1))[nodes], return_counts=True)
-        to_add = to_add[0][to_add[1].argsort()]
+        adj = self.adjacency
 
+        compls.sort()
+
+        # max_i = new_set.size
+        # max_j = compls.size
+        # nodes_ = np.zeros((max_i, max_j), dtype=DTYPE_ADJ)
+        # tile_ = np.zeros((max_i, max_j), dtype=DTYPE_UINT)
+        # counter = np.zeros(max_j, dtype=DTYPE_UINT)
+        # for i in range(max_i):
+        #     idx_i = new_set[i]
+        #
+        #     for j in range(max_j):
+        #         idx_j = compls[j]
+        #         nodes_[i][j] = adj[idx_i][idx_j] == val
+        #         tile_[i][j] = compls[j]
+        #
+        #         if adj[idx_i][idx_j] == val:
+        #             counter[j] += 1
+        #
+        # print(f'{counter.base}')
+
+
+        # print(f'max_i: {new_set.size}')
+        # print(f'max_j: {compls.size}')
+
+        # print(nodes.shape)
+        # print(nodes[0])
+        # print(nodes_.base[0])
+        # assert np.array_equal(nodes, np.asarray(nodes_))
+        # assert np.array_equal(np.tile(compls, (len(new_set), 1)), tile_)
+
+        # print(np.tile(compls, (len(new_set), 1))[nodes].shape)
+        # print(np.tile(compls, (len(new_set), 1)).shape)
+        # print(np.sum(nodes, axis=0))
+        # to_add = np.unique(np.tile(compls, (len(new_set), 1))[nodes], return_counts=True)
+        # print(f'{to_add[1]}')
+        # assert np.array_equal(compls, to_add[0]), f'compls not equal'
+        # assert np.array_equal(to_add[1], counter), f'counter not equal'
+        # to_add = to_add[0][to_add[1].argsort()]
+        to_add = compls[np.sum(nodes, axis=0).argsort()]
+
+        # print(f'to add shape {to_add.shape}')
         if not maximize_density:
             to_add = to_add[::-1]
 
-        while new_set.size < self.partition_size:
+        cdef list tmp_new_set = list(new_set)
+        # print(compls)
+        # print(np.sum(nodes, axis=0).argsort())
+        # print(to_add)
+
+        # while new_set.size < self.partition_size:
+        while len(tmp_new_set) < self.partition_size:
 
             # If there are nodes in to_add, we keep moving from compls to new_set
             if to_add.size > 0:
                 node, to_add = to_add[-1], to_add[:-1]
-                new_set = np.append(new_set, node)
-                compls = np.delete(compls, np.argwhere(compls == node))
-
+                # new_set = np.append(new_set, node)
+                tmp_new_set.append(node)
+                # print(f'node {node}')
+                # print(f'idx', np.argwhere(compls == node))
+                # compls = np.delete(compls, np.argwhere(compls == node))
+                compls = compls[:-1]
             else:
                 # If there aren't candidate nodes, we keep moving from complements
                 # to certs until we reach the desired cardinality
                 node, compls = compls[-1], compls[:-1]
-                new_set = np.append(new_set, node)
+                # new_set = np.append(new_set, node)
+                tmp_new_set.append(node)
 
-        return new_set, compls
+        return np.array(tmp_new_set), compls
 
+    @cython.profile(True)
     cpdef void _update_partitions(self, np.ndarray part1, np.ndarray part2):
         self._update_partition(part1)
         self._update_partition(part2)
 
+    @cython.profile(True)
     cpdef void _update_partition(self, np.ndarray partition):
         self.partition_idx -= 1
         self.new_dict_partitions[self.partition_idx] = partition

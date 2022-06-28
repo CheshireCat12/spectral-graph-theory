@@ -47,7 +47,9 @@ extensions = extension_modules()
 
 for e in extensions:
     e.cython_directives = {'language_level': "3",  # all are Python-3
-                           'embedsignature': True}
+                           'embedsignature': True,
+                           # 'profile': True
+                           }
 
 setup(name='regularity-graph-reduction',
       version='0.0.1',

@@ -66,13 +66,11 @@ def alon3(self, cl_pair):
     s_degrees = cl_pair.s_r_degrees[cl_pair.s_indices]
 
     yp_filter = cl_pair.find_Yp(s_degrees, cl_pair.s_indices)
-
     if yp_filter.size == 0:
         is_irregular = True
         return is_irregular, [[], []], [[], []]
 
     s_certs, y0 = cl_pair.compute_y0(nh_dev_mat, cl_pair.s_indices, yp_filter)
-
     if s_certs is None:
         is_irregular = False
         return is_irregular, [[], []], [[], []]

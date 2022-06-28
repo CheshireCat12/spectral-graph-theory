@@ -1,27 +1,28 @@
 cimport numpy as np
 
 from rgr.algorithms.certificates_complements cimport CertificatesComplements
-from rgr.constants.types cimport DTYPE_ADJ_t, DTYPE_IDX
+from rgr.constants.types cimport DTYPE_ADJ_t, DTYPE_ADJ, DTYPE_IDX_t, DTYPE_IDX, DTYPE_UINT_t, DTYPE_UINT
 
 
 cdef class Refinement:
     cdef:
+        readonly:
+            bint is_refined
+            int n_partitions
+            list new_partitions
+            dict new_dict_partitions
+            np.ndarray pair_densities
         bint verbose
-        readonly bint is_refined
         int n_nodes, partition_idx, partition_size
-        readonly int n_partitions
         double epsilon, threshold
         list partitions, certificates_complements
-        readonly list new_partitions
-        readonly dict new_dict_partitions
         np.ndarray adjacency
-        readonly np.ndarray pair_densities
 
 
     cpdef double _density(self,
-                          np.ndarray adjacency,
-                          np.ndarray indices_a,
-                          np.ndarray indices_b,
+                          DTYPE_ADJ_t[:, ::1] adjacency,
+                          DTYPE_UINT_t[::1] indices_a,
+                          DTYPE_UINT_t[::1] indices_b,
                           bint same_index_set=*)
 
     cpdef np.ndarray _pairwise_densities(self)
@@ -39,7 +40,7 @@ cdef class Refinement:
                               np.ndarray cert,
                               np.ndarray compls)
 
-    cpdef tuple _fill_new_set(self, new_set, compls, maximize_density)
+    cpdef tuple _fill_new_set(self, np.ndarray new_set, np.ndarray compls, bint maximize_density)
 
     cpdef void _update_partitions(self, np.ndarray part1, np.ndarray part2)
 
